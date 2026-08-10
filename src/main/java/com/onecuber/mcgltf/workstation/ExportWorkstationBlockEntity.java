@@ -4,11 +4,17 @@ import com.onecuber.mcgltf.content.McGltfContent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-public class ExportWorkstationBlockEntity extends BlockEntity {
+public class ExportWorkstationBlockEntity extends BlockEntity implements MenuProvider {
     private WorkstationCoordinates coordinates;
 
     private final ContainerData data = new ContainerData() {
@@ -59,6 +65,19 @@ public class ExportWorkstationBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         WorkstationCoordinatesCodec.save(tag, coordinates);
+    }
+
+    @Override
+    public Component getDisplayName() {
+        return Component.translatable("block.mcgltf.export_workstation");
+    }
+
+    @Override
+    public AbstractContainerMenu createMenu(
+            int containerId, Inventory inventory, Player player) {
+        return new ExportWorkstationMenu(
+                containerId, inventory,
+                ContainerLevelAccess.create(level, worldPosition), this);
     }
 
     private int get(int index) {

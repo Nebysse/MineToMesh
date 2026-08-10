@@ -3,15 +3,18 @@ package com.onecuber.mcgltf.content;
 import com.onecuber.mcgltf.McGltf;
 import com.onecuber.mcgltf.workstation.ExportWorkstationBlock;
 import com.onecuber.mcgltf.workstation.ExportWorkstationBlockEntity;
+import com.onecuber.mcgltf.workstation.ExportWorkstationMenu;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -24,6 +27,8 @@ public final class McGltfContent {
             DeferredRegister.createItems(McGltf.MOD_ID);
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(BuiltInRegistries.BLOCK_ENTITY_TYPE, McGltf.MOD_ID);
+    private static final DeferredRegister<MenuType<?>> MENUS =
+            DeferredRegister.create(BuiltInRegistries.MENU, McGltf.MOD_ID);
     private static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, McGltf.MOD_ID);
 
@@ -41,6 +46,11 @@ public final class McGltfContent {
                             ExportWorkstationBlockEntity::new,
                             EXPORT_WORKSTATION_BLOCK.get()).build(null));
 
+    public static final DeferredHolder<MenuType<?>, MenuType<ExportWorkstationMenu>>
+            EXPORT_WORKSTATION_MENU = MENUS.register(
+                    "export_workstation",
+                    () -> IMenuTypeExtension.create(ExportWorkstationMenu.FACTORY));
+
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> CREATIVE_TAB =
             CREATIVE_TABS.register("mine_to_mesh",
                     () -> CreativeModeTab.builder()
@@ -57,6 +67,7 @@ public final class McGltfContent {
         BLOCKS.register(modBus);
         ITEMS.register(modBus);
         BLOCK_ENTITIES.register(modBus);
+        MENUS.register(modBus);
         CREATIVE_TABS.register(modBus);
     }
 }
