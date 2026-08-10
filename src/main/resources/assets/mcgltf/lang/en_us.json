@@ -1,15 +1,11 @@
 {
-  "commands.mcgltf.pos_set": "Position %s set to %s, %s, %s in %s",
-  "commands.mcgltf.selection_incomplete": "Set both positions before exporting.",
-  "commands.mcgltf.selection_cross_dimension": "Both positions must be in the same dimension.",
-  "commands.mcgltf.name_unsafe": "Invalid export name: %s",
-  "commands.mcgltf.confirm_required": "Selection contains %s blocks. Run %s to confirm.",
-  "commands.mcgltf.already_running": "An mcgltf export is already running.",
-  "commands.mcgltf.started": "Started export: %s",
-  "commands.mcgltf.status": "Export status: %s",
-  "commands.mcgltf.idle": "No mcgltf export is active.",
-  "commands.mcgltf.cancelled": "Export cancelled.",
-  "commands.mcgltf.completed": "Export completed at %s with %s warnings.",
-  "commands.mcgltf.completed_with_warnings": "Export completed with warnings at %s. Warning count: %s",
-  "commands.mcgltf.failed": "Export failed: %s"
+  "itemGroup.mcgltf": "MineToMesh",
+  "block.mcgltf.export_workstation": "Region Export Workstation",
+  "mcgltf.error.workstation.no_menu": "No workstation menu is open",
+  "mcgltf.error.workstation.wrong_station": "This request targets a different workstation",
+  "mcgltf.error.workstation.missing_station": "The workstation is no longer present",
+  "mcgltf.error.workstation.too_far": "You are too far from the workstation",
+  "mcgltf.error.workstation.out_of_bounds": "The selected coordinate is outside the world build limits",
+  "mcgltf.error.workstation.invalid_name": "The export name is invalid",
+  "mcgltf.error.workstation.already_running": "An export is already running"
 }
