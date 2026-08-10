@@ -1,12 +1,14 @@
 package com.onecuber.mcgltf.client;
 
 import com.onecuber.mcgltf.McGltf;
+import com.onecuber.mcgltf.client.workstation.WorkstationExportController;
 import com.onecuber.mcgltf.command.ClientMessages;
 import com.onecuber.mcgltf.command.McGltfCommands;
 import com.onecuber.mcgltf.job.DefaultExportPipeline;
 import com.onecuber.mcgltf.job.ExportJob;
 import com.onecuber.mcgltf.job.ExportJobManager;
 import com.onecuber.mcgltf.job.ManagedJob;
+import com.onecuber.mcgltf.network.WorkstationClientReceiver;
 import com.onecuber.mcgltf.world.SelectionStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
@@ -22,11 +24,21 @@ import net.neoforged.neoforge.common.NeoForge;
 public final class McGltfClient {
     private final SelectionStore selectionStore = new SelectionStore();
     private final ExportJobManager jobManager = new ExportJobManager();
+    private final WorkstationExportController workstationController;
     private final McGltfCommands commands;
     private String activeDimension;
     private ManagedJob notifiedTerminalJob;
 
     public McGltfClient(IEventBus modBus) {
+        workstationController = new WorkstationExportController(
+                (coordinates, dimension, name, telemetry) -> DefaultExportPipeline.create(
+                        Minecraft.getInstance(),
+                        coordinates.toSelection(dimension),
+                        name,
+                        telemetry),
+                WorkstationExportController.fromManager(jobManager));
+        WorkstationClientReceiver.install(
+                workstationController::accept, workstationController::reject);
         commands = new McGltfCommands(selectionStore, jobManager,
                 (selection, name) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name));
@@ -47,6 +59,7 @@ public final class McGltfClient {
             activeDimension = dimension;
         }
         jobManager.tick();
+        workstationController.tick();
         notifyTerminalResult();
     }
 
@@ -73,6 +86,8 @@ public final class McGltfClient {
         selectionStore.clear();
         activeDimension = null;
         jobManager.cancel("logout");
+        workstationController.unbind();
+        WorkstationClientReceiver.reset();
     }
 
     private void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
