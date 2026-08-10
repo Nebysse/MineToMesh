@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "mcgltf_test:block/rendered_block" }
+  }
+}

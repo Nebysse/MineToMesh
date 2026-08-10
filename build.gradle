@@ -20,6 +20,15 @@ sourceSets.main.resources {
     srcDir 'src/generated/resources'
 }
 
+sourceSets {
+    testmod {
+        java.setSrcDirs(['src/testmod/java'])
+        resources.setSrcDirs(['src/testmod/resources'])
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
 neoForge {
     version = project.neo_version
 
@@ -38,6 +47,9 @@ neoForge {
         "${mod_id}" {
             sourceSet(sourceSets.main)
         }
+        mcgltf_test {
+            sourceSet(sourceSets.testmod)
+        }
     }
 
     unitTest {
@@ -48,6 +60,8 @@ neoForge {
 
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+    testmodImplementation.extendsFrom implementation
+    testmodRuntimeOnly.extendsFrom runtimeOnly
 }
 
 dependencies {
