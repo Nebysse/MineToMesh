@@ -119,7 +119,6 @@ public final class McGltfClient {
         overlayState.clear();
         jobManager.cancel("logout");
         workstationController.unbind();
-        WorkstationClientReceiver.reset();
     }
 
     private void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {

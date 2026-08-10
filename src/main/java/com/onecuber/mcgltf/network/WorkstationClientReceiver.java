@@ -25,8 +25,4 @@ public final class WorkstationClientReceiver {
         rejected.accept(payload);
     }
 
-    public static void reset() {
-        granted = value -> { };
-        rejected = value -> { };
-    }
 }

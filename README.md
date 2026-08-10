@@ -20,7 +20,7 @@ MineToMesh（MC glTF Exporter）是面向 Minecraft 1.21.1 NeoForge 的世界导
 ## 安装
 
 1. 安装 Minecraft 1.21.1、NeoForge 21.1.244 或更高的兼容 21.1.x 版本。
-2. 将 `mcgltf-0.3.1.jar` 放入**客户端和服务端**的 `mods/` 目录，并移除旧版 JAR。
+2. 将 `mcgltf-0.3.2.jar` 放入**客户端和服务端**的 `mods/` 目录，并移除旧版 JAR。
 3. 启动客户端与服务端。只有客户端会执行实际导出；服务端仅参与方块、选区和菜单逻辑。
 
 ## 区域导出工作台
@@ -107,7 +107,7 @@ npm run validate -- ..\run\mcgltf-exports\smoke\smoke.gltf
 
 真实模组验收建议使用 Create 6.0.10、Flywheel 1.0.6 与 Touhou Little Maid 1.5.3：
 
-1. 备份并停用旧版 JAR，安装 `mcgltf-0.3.1.jar`（客户端与服务端）。
+1. 备份并停用旧版 JAR，安装 `mcgltf-0.3.2.jar`（客户端与服务端）。
 2. 选择含 Create 齿轮箱、带支架传动件、空/满储液罐及一只女仆的区域并导出。
 3. 确认齿轮箱和储液罐没有错误占位符，轴保持当前姿态，满罐液位正确。
 4. 确认女仆皮肤不使用棋盘格降级纹理。

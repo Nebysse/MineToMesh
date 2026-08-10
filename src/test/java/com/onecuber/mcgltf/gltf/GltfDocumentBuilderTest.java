@@ -46,7 +46,7 @@ class GltfDocumentBuilderTest {
         JsonObject document = builder.finish(binary.size());
 
         assertEquals("2.0", document.getAsJsonObject("asset").get("version").getAsString());
-        assertEquals("MineToMesh 0.3.1",
+        assertEquals("MineToMesh 0.3.2",
                 document.getAsJsonObject("asset").get("generator").getAsString());
         assertEquals(0, document.get("scene").getAsInt());
         assertEquals(1, document.getAsJsonArray("scenes").size());
