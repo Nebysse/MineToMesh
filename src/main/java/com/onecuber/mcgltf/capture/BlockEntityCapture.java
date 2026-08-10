@@ -1,0 +1,219 @@
+package com.onecuber.mcgltf.capture;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.onecuber.mcgltf.material.MaterialResolver;
+import com.onecuber.mcgltf.scene.BatchCounters;
+import com.onecuber.mcgltf.scene.CapturedNode;
+import com.onecuber.mcgltf.scene.Diagnostic;
+import com.onecuber.mcgltf.scene.MaterialKey;
+import com.onecuber.mcgltf.scene.PrimitiveData;
+import com.onecuber.mcgltf.scene.Vec3f;
+import com.onecuber.mcgltf.world.BlockPoint;
+import com.onecuber.mcgltf.world.Selection;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.entity.BlockEntity;
+
+public final class BlockEntityCapture {
+    private final Function<RenderTypeDescriptor, MaterialKey> materialResolver;
+
+    public BlockEntityCapture() {
+        this(MaterialResolver::resolve);
+    }
+
+    public BlockEntityCapture(Function<RenderTypeDescriptor, MaterialKey> materialResolver) {
+        this.materialResolver = Objects.requireNonNull(materialResolver, "materialResolver");
+    }
+
+    public CaptureResult capture(BlockEntity blockEntity, Selection selection) {
+        Objects.requireNonNull(blockEntity, "blockEntity");
+        Objects.requireNonNull(selection, "selection");
+        String registryId = BuiltInRegistries.BLOCK_ENTITY_TYPE
+                .getKey(blockEntity.getType()).toString();
+        BlockPos position = blockEntity.getBlockPos();
+        String objectId = registryId + "/"
+                + position.getX() + "," + position.getY() + "," + position.getZ();
+        BlockEntityRenderer<BlockEntity> renderer = renderer(blockEntity);
+        if (renderer == null) {
+            Diagnostic diagnostic = diagnostic(
+                    Diagnostic.Severity.WARNING,
+                    "BLOCK_ENTITY_RENDERER_MISSING",
+                    objectId,
+                    position,
+                    selection,
+                    "",
+                    "",
+                    "Block entity has no renderer and is represented by its block model");
+            return new CaptureResult(Optional.empty(), List.of(diagnostic), BatchCounters.ZERO);
+        }
+
+        CapturingMultiBufferSource buffers = new CapturingMultiBufferSource(
+                objectId, materialResolver);
+        try {
+            PoseStack poseStack = blockEntityPose(position, selection);
+            renderer.render(blockEntity, 0.0F, poseStack, buffers,
+                    LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+            CapturingMultiBufferSource.CaptureResult captured = buffers.finishAll();
+            Map<String, Object> extras = extras(
+                    registryId, position, selection, renderer.getClass().getName());
+            if (hasGeometry(captured.primitives())) {
+                CapturedNode node = new CapturedNode(
+                        objectId,
+                        CapturedNode.Kind.BLOCK_ENTITY,
+                        captured.primitives(),
+                        extras);
+                return new CaptureResult(
+                        Optional.of(node),
+                        captured.diagnostics(),
+                        new BatchCounters(0, 0, 0, 1, 0, 0, 0,
+                                triangleCount(captured.primitives()), 0));
+            }
+            CaptureResult fallback = fallback(
+                    objectId, registryId, position, selection,
+                    renderer.getClass().getName(),
+                    "BLOCK_ENTITY_ZERO_VERTICES",
+                    "Block entity renderer emitted no exportable vertices",
+                    null);
+            List<Diagnostic> diagnostics = new ArrayList<>(captured.diagnostics());
+            diagnostics.addAll(fallback.diagnostics());
+            return new CaptureResult(fallback.node(), diagnostics, fallback.counters());
+        } catch (Exception exception) {
+            return fallback(
+                    objectId, registryId, position, selection,
+                    renderer.getClass().getName(),
+                    "BLOCK_ENTITY_CAPTURE_FAILED",
+                    exception.getMessage() == null
+                            ? "Block entity capture failed" : exception.getMessage(),
+                    exception);
+        }
+    }
+
+    private static CaptureResult fallback(
+            String objectId,
+            String registryId,
+            BlockPos position,
+            Selection selection,
+            String rendererClass,
+            String code,
+            String message,
+            Exception exception) {
+        Map<String, Object> extras = extras(registryId, position, selection, rendererClass);
+        extras.put("fallbackReason", code);
+        float x = position.getX() - selection.min().x();
+        float y = position.getY() - selection.min().y();
+        float z = position.getZ() - selection.min().z();
+        CapturedNode placeholder = PlaceholderFactory.create(
+                objectId,
+                new Vec3f(x, y, -z - 1.0F),
+                new Vec3f(x + 1.0F, y + 1.0F, -z),
+                extras);
+        Diagnostic diagnostic = diagnostic(
+                Diagnostic.Severity.FAILURE,
+                code,
+                objectId,
+                position,
+                selection,
+                rendererClass,
+                exception == null ? "" : exception.getClass().getName(),
+                message);
+        return new CaptureResult(
+                Optional.of(placeholder),
+                List.of(diagnostic),
+                new BatchCounters(0, 0, 0, 1, 0, 0, 0, 12, 1));
+    }
+
+    private static PoseStack blockEntityPose(BlockPos position, Selection selection) {
+        PoseStack poseStack = new PoseStack();
+        poseStack.translate(
+                position.getX() - selection.min().x(),
+                position.getY() - selection.min().y(),
+                -(position.getZ() - selection.min().z()));
+        poseStack.scale(1.0F, 1.0F, -1.0F);
+        return poseStack;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static BlockEntityRenderer<BlockEntity> renderer(BlockEntity blockEntity) {
+        BlockEntityRenderDispatcher dispatcher = Minecraft.getInstance()
+                .getBlockEntityRenderDispatcher();
+        return (BlockEntityRenderer<BlockEntity>) dispatcher.getRenderer(blockEntity);
+    }
+
+    private static Map<String, Object> extras(
+            String registryId,
+            BlockPos position,
+            Selection selection,
+            String rendererClass) {
+        Map<String, Object> extras = new LinkedHashMap<>();
+        extras.put("registryId", registryId);
+        extras.put("worldPosition", List.of(
+                position.getX(), position.getY(), position.getZ()));
+        extras.put("localPosition", List.of(
+                position.getX() - selection.min().x(),
+                position.getY() - selection.min().y(),
+                -(position.getZ() - selection.min().z())));
+        extras.put("rendererClass", rendererClass);
+        return extras;
+    }
+
+    private static Diagnostic diagnostic(
+            Diagnostic.Severity severity,
+            String code,
+            String objectId,
+            BlockPos position,
+            Selection selection,
+            String rendererClass,
+            String exceptionClass,
+            String message) {
+        return new Diagnostic(
+                severity,
+                code,
+                objectId,
+                Optional.of(new BlockPoint(
+                        selection.min().dimension(),
+                        position.getX(), position.getY(), position.getZ())),
+                rendererClass,
+                exceptionClass,
+                message);
+    }
+
+    private static boolean hasGeometry(List<PrimitiveData> primitives) {
+        return primitives.stream().anyMatch(primitive -> primitive.indices().length > 0);
+    }
+
+    private static long triangleCount(List<PrimitiveData> primitives) {
+        long count = 0;
+        for (PrimitiveData primitive : primitives) {
+            int indexCount = primitive.indices().length;
+            count += switch (primitive.gltfMode()) {
+                case 4 -> indexCount / 3L;
+                case 5, 6 -> Math.max(0, indexCount - 2L);
+                default -> 0L;
+            };
+        }
+        return count;
+    }
+
+    public record CaptureResult(
+            Optional<CapturedNode> node,
+            List<Diagnostic> diagnostics,
+            BatchCounters counters) {
+        public CaptureResult {
+            node = Objects.requireNonNull(node, "node");
+            diagnostics = List.copyOf(diagnostics);
+            Objects.requireNonNull(counters, "counters");
+        }
+    }
+}
