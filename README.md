@@ -1,6 +1,6 @@
-# MC glTF Exporter
+# MineToMesh
 
-面向 Minecraft 1.21.1 NeoForge 的客户端侧世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 场景。
+MineToMesh（MC glTF Exporter）是面向 Minecraft 1.21.1 NeoForge 的客户端侧世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与 OBJ 场景。
 
 ## 特性
 
