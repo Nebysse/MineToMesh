@@ -29,3 +29,20 @@
 | 通用后端回退 | 放置 `mcgltf_test:gpu_only_block` | `/mcgltf export gpu_only` | glTF/OBJ 双格式完整 | 回退几何出现、无洋红占位符；OBJ 中原始 Quad 保留为四边面 | `RENDER_BACKEND_FALLBACK_USED` 为 INFO，adapter 为 `mcgltf_test` |
 | 后端状态恢复 | 完成上述导出后继续观察测试对象至少一分钟 | 无 | 无额外文件要求 | 正常测试模组渲染保持可见，无状态泄漏或闪烁 | 无 `RENDER_BACKEND_FALLBACK_FAILED` |
 | 自定义流体 | 放置测试紫色流体 | `/mcgltf export purple_fluid` | 水 still/flow 副本 | 色调为 `#8A4FFF` | 流体计数 +1 |
+
+## 真实模组验收矩阵
+
+目标实例：`D:\data\.minecraft\versions\1.21.1-NeoForge_21.1.244`。安装候选 JAR 前必须先取得用户确认；将 `mcgltf-0.1.0.jar` 可逆地改名为 `.disabled`，再复制 `mcgltf-0.2.0.jar`。
+
+测试版本：Create `6.0.10`、Flywheel `1.0.6`、Touhou Little Maid `1.5.3`。
+
+1. 选区包含 Create 齿轮箱、带支架传动件、空储液罐、满储液罐及一只 Touhou 女仆。
+2. 导出后要求此前 17 个 Create 对象的错误 `BLOCK_ENTITY_ZERO_VERTICES` 占位符计数为 0。
+3. 要求齿轮箱与储液罐无重复几何，传动轴保持当前姿态，满罐液位与游戏内一致。
+4. 要求女仆皮肤非棋盘格；女仆皮肤与 `minecraft` 方块图集均无 `TEXTURE_READ_FAILED`。
+5. `AUXILIARY_RENDERER_EMPTY` 允许以 INFO 保留，不得使状态变为 `completed_with_warnings`。
+6. 分别将 glTF 与 OBJ 导入 Blender 5.2，对比世界原点、尺度、手性、对象位置、材质与 UV；glTF 应为三角面，OBJ 的源 Quad 应保留为四边面。
+7. 对 glTF 运行 Khronos Validator，要求 `numErrors: 0`。
+8. 导出结束后继续游玩至少一分钟，要求 Flywheel 视觉保持激活、无对象消失或闪烁。
+
+验收记录：待开发客户端与真实实例验证后填写导出目录、报告摘要、Khronos 结果及 Blender 对比结果。
