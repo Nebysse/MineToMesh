@@ -57,7 +57,8 @@ public final class ResourceTextureExtractor {
                     return Optional.empty();
                 }
                 AbstractTexture texture = manager.getTexture(request.textureId());
-                if (!(texture instanceof DynamicTexture dynamicTexture)) {
+                if (!(texture instanceof DynamicTexture dynamicTexture)
+                        || dynamicTexture.getPixels() == null) {
                     return Optional.empty();
                 }
                 Extraction extraction = extractor.extractDynamic(
