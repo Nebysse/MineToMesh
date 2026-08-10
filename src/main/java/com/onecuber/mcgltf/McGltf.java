@@ -6,5 +6,5 @@ import net.neoforged.fml.common.Mod;
 public final class McGltf {
     public static final String MOD_ID = "mcgltf";
     public static final String DISPLAY_NAME = "MC glTF Exporter";
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.2.0";
 }
