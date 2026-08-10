@@ -2,12 +2,13 @@ package com.onecuber.mcgltf.gltf;
 
 import com.onecuber.mcgltf.scene.MaterialKey;
 import java.util.Objects;
+import java.util.Optional;
 
 public record WrittenPrimitive(
         BinaryBufferWriter.Segment positions,
         BinaryBufferWriter.Segment normals,
         BinaryBufferWriter.Segment texCoords,
-        BinaryBufferWriter.Segment colors,
+        Optional<BinaryBufferWriter.Segment> colors,
         BinaryBufferWriter.Segment indices,
         int gltfMode,
         MaterialKey material) {

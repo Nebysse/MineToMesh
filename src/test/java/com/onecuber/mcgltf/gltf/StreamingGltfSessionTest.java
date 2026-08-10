@@ -1,6 +1,7 @@
 package com.onecuber.mcgltf.gltf;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
@@ -8,10 +9,13 @@ import com.google.gson.JsonParser;
 import com.onecuber.mcgltf.scene.BatchCounters;
 import com.onecuber.mcgltf.scene.CapturedNode;
 import com.onecuber.mcgltf.scene.ChunkBatch;
+import com.onecuber.mcgltf.scene.ColorRgba;
 import com.onecuber.mcgltf.scene.PrimitiveData;
+import com.onecuber.mcgltf.scene.Vertex;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -47,6 +51,31 @@ class StreamingGltfSessionTest {
     }
 
     @Test
+    void omitsColorAttributeForOpaqueWhiteVertices() throws Exception {
+        JsonObject document = exportPrimitive(
+                "white", GltfDocumentBuilderTest.triangle());
+        JsonObject attributes = firstPrimitive(document).getAsJsonObject("attributes");
+
+        assertFalse(attributes.has("COLOR_0"));
+        assertEquals(4, document.getAsJsonArray("accessors").size());
+    }
+
+    @Test
+    void retainsColorAttributeForRgbTintOrVertexAlpha() throws Exception {
+        JsonObject tinted = exportPrimitive(
+                "tinted",
+                withFirstColor(GltfDocumentBuilderTest.triangle(),
+                        new ColorRgba(254, 255, 255, 255)));
+        JsonObject alpha = exportPrimitive(
+                "alpha",
+                withFirstColor(GltfDocumentBuilderTest.triangle(),
+                        new ColorRgba(255, 255, 255, 254)));
+
+        assertTrue(firstPrimitive(tinted).getAsJsonObject("attributes").has("COLOR_0"));
+        assertTrue(firstPrimitive(alpha).getAsJsonObject("attributes").has("COLOR_0"));
+    }
+
+    @Test
     void internalValidatorAcceptsCompleteDocumentAndRejectsMissingResources() throws Exception {
         PrimitiveData primitive = GltfDocumentBuilderTest.triangle();
         CapturedNode node = new CapturedNode("first", CapturedNode.Kind.CHUNK,
@@ -65,5 +94,36 @@ class StreamingGltfSessionTest {
         Files.delete(texture);
         assertTrue(InternalGltfValidator.validate(document, tempDir).stream()
                 .anyMatch(message -> message.contains("Missing external resource")));
+    }
+
+    private JsonObject exportPrimitive(String name, PrimitiveData primitive) throws Exception {
+        CapturedNode node = new CapturedNode(
+                name, CapturedNode.Kind.ENTITY, List.of(primitive), Map.of());
+        try (StreamingGltfSession session = new StreamingGltfSession(
+                tempDir, name, Map.of())) {
+            session.append(new ChunkBatch(List.of(node), List.of(), BatchCounters.ZERO));
+            session.finish();
+        }
+        return JsonParser.parseString(Files.readString(tempDir.resolve(name + ".gltf")))
+                .getAsJsonObject();
+    }
+
+    private static JsonObject firstPrimitive(JsonObject document) {
+        return document.getAsJsonArray("meshes").get(0).getAsJsonObject()
+                .getAsJsonArray("primitives").get(0).getAsJsonObject();
+    }
+
+    private static PrimitiveData withFirstColor(
+            PrimitiveData source,
+            ColorRgba color) {
+        List<Vertex> vertices = new ArrayList<>(source.vertices());
+        Vertex first = vertices.getFirst();
+        vertices.set(0, new Vertex(
+                first.position(), first.normal(), first.uv(), color));
+        return new PrimitiveData(
+                vertices,
+                source.sourceMode(),
+                source.streamVertexCounts(),
+                source.material());
     }
 }

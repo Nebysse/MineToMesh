@@ -128,14 +128,14 @@ public final class GltfDocumentBuilder {
         int positionAccessor = addAccessor(primitive.positions(), "VEC3", false);
         int normalAccessor = addAccessor(primitive.normals(), "VEC3", false);
         int uvAccessor = addAccessor(primitive.texCoords(), "VEC2", false);
-        int colorAccessor = addAccessor(primitive.colors(), "VEC4", true);
         int indexAccessor = addAccessor(primitive.indices(), "SCALAR", false);
 
         JsonObject attributes = new JsonObject();
         attributes.addProperty("POSITION", positionAccessor);
         attributes.addProperty("NORMAL", normalAccessor);
         attributes.addProperty("TEXCOORD_0", uvAccessor);
-        attributes.addProperty("COLOR_0", colorAccessor);
+        primitive.colors().ifPresent(segment -> attributes.addProperty(
+                "COLOR_0", addAccessor(segment, "VEC4", true)));
 
         JsonObject json = new JsonObject();
         json.add("attributes", attributes);

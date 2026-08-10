@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.onecuber.mcgltf.scene.CapturedNode;
 import com.onecuber.mcgltf.scene.ChunkBatch;
+import com.onecuber.mcgltf.scene.ColorRgba;
 import com.onecuber.mcgltf.scene.PrimitiveData;
 import com.onecuber.mcgltf.scene.TopologyConverter;
 import java.io.Closeable;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class StreamingGltfSession implements Closeable {
     private static final Gson GSON = new GsonBuilder()
@@ -77,11 +79,21 @@ public final class StreamingGltfSession implements Closeable {
     private WrittenPrimitive write(PrimitiveData primitive, String objectId) throws IOException {
         TopologyConverter.ConvertedTopology topology =
                 TopologyConverter.convert(primitive, objectId);
+        BinaryBufferWriter.Segment positions =
+                binaryWriter.writePositions(primitive.vertices());
+        BinaryBufferWriter.Segment normals =
+                binaryWriter.writeNormals(primitive.vertices());
+        BinaryBufferWriter.Segment texCoords =
+                binaryWriter.writeTexCoords(primitive.vertices());
+        Optional<BinaryBufferWriter.Segment> colors = primitive.vertices().stream()
+                .allMatch(vertex -> vertex.color().equals(ColorRgba.WHITE))
+                ? Optional.empty()
+                : Optional.of(binaryWriter.writeColors(primitive.vertices()));
         return new WrittenPrimitive(
-                binaryWriter.writePositions(primitive.vertices()),
-                binaryWriter.writeNormals(primitive.vertices()),
-                binaryWriter.writeTexCoords(primitive.vertices()),
-                binaryWriter.writeColors(primitive.vertices()),
+                positions,
+                normals,
+                texCoords,
+                colors,
                 binaryWriter.writeIndices(topology.indices()),
                 topology.gltfMode(),
                 primitive.material());

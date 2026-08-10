@@ -32,7 +32,7 @@ class GltfDocumentBuilderTest {
                     writer.writePositions(primitive.vertices()),
                     writer.writeNormals(primitive.vertices()),
                     writer.writeTexCoords(primitive.vertices()),
-                    writer.writeColors(primitive.vertices()),
+                    Optional.of(writer.writeColors(primitive.vertices())),
                     writer.writeIndices(primitive.indices()),
                     primitive.gltfMode(),
                     primitive.material());
