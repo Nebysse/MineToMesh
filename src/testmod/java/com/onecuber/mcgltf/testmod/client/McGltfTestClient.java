@@ -3,8 +3,10 @@ package com.onecuber.mcgltf.testmod.client;
 import com.onecuber.mcgltf.testmod.McGltfTestMod;
 import com.onecuber.mcgltf.testmod.TestContent;
 import com.onecuber.mcgltf.testmod.TestFluidRegistration;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
@@ -15,9 +17,15 @@ public final class McGltfTestClient {
     }
 
     public static void register(IEventBus modBus) {
+        modBus.addListener(McGltfTestClient::clientSetup);
         modBus.addListener(McGltfTestClient::modifyBakingResult);
         modBus.addListener(McGltfTestClient::registerRenderers);
         modBus.addListener(McGltfTestClient::registerClientExtensions);
+    }
+
+    public static void clientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> Minecraft.getInstance().getTextureManager().register(
+                TestEntityRenderer.TEXTURE, new GpuResidentTexture()));
     }
 
     public static void modifyBakingResult(ModelEvent.ModifyBakingResult event) {

@@ -11,8 +11,8 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 
 public final class TestEntityRenderer extends EntityRenderer<TestEntity> {
-    public static final ResourceLocation TEXTURE = ResourceLocation.withDefaultNamespace(
-            "textures/block/amethyst_block.png");
+    public static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(
+            "mcgltf_test", "runtime/gpu_only");
 
     public TestEntityRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -26,7 +26,7 @@ public final class TestEntityRenderer extends EntityRenderer<TestEntity> {
             PoseStack poseStack,
             MultiBufferSource buffers,
             int packedLight) {
-        emitCube(poseStack, buffers.getBuffer(RenderType.entityTranslucent(TEXTURE)),
+        emitCube(poseStack, buffers.getBuffer(RenderType.entityCutout(TEXTURE)),
                 255, 255, 255, 255, packedLight);
         super.render(entity, yaw, partialTick, poseStack, buffers, packedLight);
     }

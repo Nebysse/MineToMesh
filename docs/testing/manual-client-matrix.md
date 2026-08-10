@@ -1,6 +1,6 @@
 # 客户端手工验收矩阵
 
-统一流程：进入测试世界，按“设置”放置对象；站在选区两个角分别执行 `/mcgltf pos1`、`/mcgltf pos2`，然后执行“命令”。检查导出目录中的 `.gltf`、`.bin`、`textures/`、`materials/` 与 `report.json`。
+统一流程：进入测试世界，按“设置”放置对象；站在选区两个角分别执行 `/mcgltf pos1`、`/mcgltf pos2`，然后执行“命令”。检查导出目录中的 `.gltf`、`.bin`、`.obj`、`.mtl`、`textures/`、`materials/` 与 `report.json`。
 
 | 场景 | 设置 | 命令 | 预期文件 | 预期视觉结果 | 报告预期 |
 |---|---|---|---|---|---|
@@ -17,13 +17,15 @@
 | 盔甲架 | 放置盔甲架 | `/mcgltf export armor_stand` | 实体材质 | 当前姿态出现 | 非玩家实体计数 +1 |
 | 掉落物 | 丢出物品 | `/mcgltf export item` | 物品纹理 | 掉落物静态姿态 | UUID 已记录 |
 | 船 | 放置船 | `/mcgltf export boat` | 船纹理 | 车辆实体完整 | 实体计数 +1 |
-| 模组 BakedModel | 放置 `mcgltf_test:model_data_block` | `/mcgltf export model_data` | 紫水晶纹理 | 方块仅出现一次 | 无 ModelData 失败 |
-| 模组 BER/实体 | 放置 rendered_block 并生成 test_entity | `/mcgltf export mod_renderers` | 钻石、紫水晶纹理 | 青色 BER 与实体出现 | rendererClass 正确 |
+| 模组 BakedModel + 空附加渲染器 | 放置 `mcgltf_test:model_data_block` | `/mcgltf export model_data` | glTF/OBJ 及紫水晶纹理 | 静态方块仅出现一次、无占位符 | `AUXILIARY_RENDERER_EMPTY` 可为 INFO，状态仍为 `completed` |
+| 模组 BER/实体 | 放置 rendered_block 并生成 test_entity | `/mcgltf export mod_renderers` | 钻石纹理与 generated 运行时纹理 | 青色 BER 与实体出现 | rendererClass 正确 |
+| GPU 运行时纹理 | 生成 `mcgltf_test:test_entity` | `/mcgltf export gpu_texture` | `textures/generated/<hash>.png` | 2×2 四角依次为左上红、右上绿、左下蓝、右下白，UV 不倒置 | `GPU_TEXTURE_READBACK_USED` 为 INFO，无 `TEXTURE_READ_FAILED` |
 | 未加载区块 | 选区跨越视距外区块 | `/mcgltf export unloaded` | 正常输出 | 仅已加载部分出现 | missingChunks 非空且未加载新区块 |
 | 取消 | 启动大选区后立即取消 | `/mcgltf cancel` | 无正式目录、临时目录被清理 | 无结果导入 | 状态 CANCELLED |
 | 资源重载取消 | 导出中按 F3+T | `/mcgltf status` | 无正式目录 | 无半成品发布 | 原因 resource_reload |
 | 同名后缀 | 连续导出同名两次 | `/mcgltf export duplicate` | `duplicate/` 与 `duplicate-2/` | 两份均可导入 | 两份报告完成 |
 | Blender 导入 | 导入 smoke.gltf | `/mcgltf export smoke` | 相对资源完整 | 层级、比例、轴向正确 | origin extras 存在 |
 | Khronos 验证 | 安装 tools 依赖 | `npm run validate -- ..\run\mcgltf-exports\smoke\smoke.gltf` | 验证 JSON | 不适用 | `numErrors: 0` |
-| GPU-only 降级 | 放置 `mcgltf_test:gpu_only_block` | `/mcgltf export gpu_only` | generated 白纹理 | 洋红半透明 AABB | `BLOCK_ENTITY_ZERO_VERTICES` |
+| 通用后端回退 | 放置 `mcgltf_test:gpu_only_block` | `/mcgltf export gpu_only` | glTF/OBJ 双格式完整 | 回退几何出现、无洋红占位符；OBJ 中原始 Quad 保留为四边面 | `RENDER_BACKEND_FALLBACK_USED` 为 INFO，adapter 为 `mcgltf_test` |
+| 后端状态恢复 | 完成上述导出后继续观察测试对象至少一分钟 | 无 | 无额外文件要求 | 正常测试模组渲染保持可见，无状态泄漏或闪烁 | 无 `RENDER_BACKEND_FALLBACK_FAILED` |
 | 自定义流体 | 放置测试紫色流体 | `/mcgltf export purple_fluid` | 水 still/flow 副本 | 色调为 `#8A4FFF` | 流体计数 +1 |
