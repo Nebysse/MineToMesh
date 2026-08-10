@@ -81,6 +81,14 @@ public final class WorkstationPayloads {
             if (station == null) {
                 return;
             }
+            WorkstationRequestPolicy.Validation permissionValidation =
+                    WorkstationRequestPolicy.validateExportPermission(
+                            player.getServer().isSingleplayer(),
+                            player.createCommandSourceStack().hasPermission(2));
+            if (!permissionValidation.accepted()) {
+                sendReject(player, payload.stationPos(), permissionValidation.reasonKey());
+                return;
+            }
             WorkstationRequestPolicy.Validation nameValidation =
                     WorkstationRequestPolicy.validateExportName(payload.exportName());
             if (!nameValidation.accepted()) {

@@ -7,5 +7,6 @@
   "mcgltf.error.workstation.too_far": "距离工作台太远",
   "mcgltf.error.workstation.out_of_bounds": "所选坐标超出世界建筑范围",
   "mcgltf.error.workstation.invalid_name": "导出名称无效",
+  "mcgltf.error.workstation.no_export_permission": "只有服务器管理员可以使用工作台导出",
   "mcgltf.error.workstation.already_running": "已有导出任务正在运行"
 }

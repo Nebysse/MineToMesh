@@ -46,6 +46,22 @@ class WorkstationRequestPolicyTest {
     }
 
     @Test
+    void localSingleplayerBypassesExportPermission() {
+        assertTrue(WorkstationRequestPolicy
+                .validateExportPermission(true, false).accepted());
+    }
+
+    @Test
+    void dedicatedServerRequiresLevelTwoCommandPermission() {
+        WorkstationRequestPolicy.Validation denied = WorkstationRequestPolicy
+                .validateExportPermission(false, false);
+        assertFalse(denied.accepted());
+        assertEquals("mcgltf.error.workstation.no_export_permission", denied.reasonKey());
+        assertTrue(WorkstationRequestPolicy
+                .validateExportPermission(false, true).accepted());
+    }
+
+    @Test
     void acceptsValidRequest() {
         assertTrue(WorkstationRequestPolicy.validateMenuIdentity(station, station).accepted());
         assertTrue(WorkstationRequestPolicy.validateStationPresent(true).accepted());

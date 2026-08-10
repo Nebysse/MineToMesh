@@ -7,5 +7,6 @@
   "mcgltf.error.workstation.too_far": "You are too far from the workstation",
   "mcgltf.error.workstation.out_of_bounds": "The selected coordinate is outside the world build limits",
   "mcgltf.error.workstation.invalid_name": "The export name is invalid",
+  "mcgltf.error.workstation.no_export_permission": "Only server administrators may export from this workstation",
   "mcgltf.error.workstation.already_running": "An export is already running"
 }

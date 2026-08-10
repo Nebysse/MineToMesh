@@ -40,6 +40,13 @@ public final class WorkstationRequestPolicy {
         return Validation.accept();
     }
 
+    public static Validation validateExportPermission(
+            boolean localSingleplayer, boolean hasLevelTwoCommandPermission) {
+        return localSingleplayer || hasLevelTwoCommandPermission
+                ? Validation.accept()
+                : Validation.reject("mcgltf.error.workstation.no_export_permission");
+    }
+
     public static Validation validateExportName(String exportName) {
         if (exportName == null
                 || exportName.codePointCount(0, exportName.length()) > 64) {
