@@ -1,0 +1,45 @@
+<style>
+:root{--o:#f47b20;--o2:#ff9850;--b:#3f8fcf;--b2:#65afe8;--g0:#1f2226;--g1:#2b2f34;--g2:#373c42;--g3:#484e55;--line:#656c74;--text:#e6e9ec;--muted:#aab1b8}.stage{padding:28px 12px 38px;background:radial-gradient(circle at 50% 15%,#58616b 0,#343940 48%,#25292e 100%);border-radius:18px}.game-ui{width:min(760px,94vw);margin:auto;background:var(--g1);border:4px solid #191c1f;box-shadow:0 0 0 2px #737b83,0 22px 55px #0009,inset 1px 1px #555d65;color:var(--text);font-family:monospace;image-rendering:pixelated}.topbar{height:39px;display:flex;align-items:center;padding:0 12px;background:linear-gradient(#434950,#34393f);border-bottom:2px solid #171a1d;box-shadow:inset 0 -1px #5a626a}.logo{width:21px;height:21px;margin-right:9px;position:relative;border-radius:2px;background:var(--o);box-shadow:inset 0 0 0 4px #31363b}.logo:after{content:"";position:absolute;width:6px;height:6px;background:var(--b);right:2px;bottom:2px}.title{font-weight:700;letter-spacing:.5px}.status{margin-left:auto;color:#b7c0c8;font-size:11px}.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--b2);box-shadow:0 0 8px var(--b2);margin-right:5px}.workspace{display:grid;grid-template-columns:1.12fr .88fr;gap:8px;padding:8px}.pane{background:var(--g2);border:1px solid #171a1d;box-shadow:inset 1px 1px #555c63;padding:9px}.pane-title{display:flex;align-items:center;color:#f0f2f3;font-size:12px;font-weight:700;margin:0 0 8px}.accent{width:3px;height:13px;background:var(--o);margin-right:6px}.point{background:var(--g1);border:1px solid #1c1f22;margin:6px 0;padding:7px}.point-head{display:flex;align-items:center;margin-bottom:6px;font-size:11px}.badge{width:18px;height:18px;display:grid;place-items:center;margin-right:6px;font-weight:700;color:white;background:var(--o);border:1px solid #ffad73}.badge.blue{background:var(--b);border-color:#80c3f1}.coords{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.axis{display:grid;grid-template-columns:13px 1fr 16px;gap:2px;align-items:center}.axis label{font-size:10px;color:#b8c0c8}.num{height:21px;display:flex;align-items:center;justify-content:flex-end;padding:0 5px;background:#202328;border:1px solid #646b72;box-shadow:inset 1px 1px #121416;color:#f5f7f8}.steps{height:23px;display:grid;grid-template-rows:1fr 1fr;gap:1px}.step{background:#555c64;border:1px solid #202328;display:grid;place-items:center;font-size:7px;color:#eef1f3}.step:hover{background:var(--o)}.capture{margin-top:6px;height:20px;display:flex;align-items:center;justify-content:center;background:#4a5057;border:1px solid #1e2125;box-shadow:inset 1px 1px #68717a;font-size:10px}.capture:hover{border-color:var(--b);color:white}.summary{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:7px}.metric{background:#2a2e33;border-left:3px solid var(--b);padding:5px 7px;font-size:10px}.metric strong{display:block;color:white;font-size:12px}.toggle-row{display:flex;align-items:center;margin-top:7px;font-size:10px}.switch{width:31px;height:14px;margin-left:auto;background:var(--o);border:1px solid #1b1e21;position:relative}.switch:after{content:"";position:absolute;right:2px;top:2px;width:8px;height:8px;background:white;box-shadow:0 0 0 1px #222}.name-label{color:#b9c0c7;font-size:10px;margin-bottom:4px}.namebox{height:23px;display:flex;align-items:center;padding:0 7px;background:#202328;border:1px solid var(--o);box-shadow:inset 1px 1px #111;color:#fff}.format{display:flex;justify-content:space-between;margin:7px 0;font-size:10px;color:#bfc6cc}.format span{padding:3px 6px;background:#2a2e33;border:1px solid #555d64}.export{height:28px;background:linear-gradient(#fb8d3c,#dc6816);border:1px solid #1b1d20;box-shadow:inset 1px 1px #ffba83;display:flex;align-items:center;justify-content:center;font-weight:700;color:white;text-shadow:0 1px #7b3000}.export.disabled{filter:saturate(.8)}.progress-label{display:flex;margin-top:9px;font-size:10px;color:#cbd1d6}.progress-label span:last-child{margin-left:auto;color:var(--b2)}.track{height:11px;background:#202328;border:1px solid #121417;margin-top:4px;padding:2px}.fill{height:100%;width:64%;background:repeating-linear-gradient(90deg,var(--b) 0 8px,#57a2dd 8px 10px);box-shadow:0 0 5px #3f8fcf88}.current{font-size:9px;color:#9fa8b0;margin:6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cancel{height:21px;display:flex;align-items:center;justify-content:center;border:1px solid #60676e;background:#41474e;font-size:10px;color:#dce0e3}.logbar{margin:0 8px 8px;background:#202328;border:1px solid #141619;padding:7px 9px;display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;font-size:9px;color:#aeb8c0}.log-icon{color:var(--o)}.log-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.report{color:var(--b2);border-left:1px solid #596169;padding-left:8px}.hint{text-align:center;margin-top:14px;color:#d2d6da;font-size:12px}.legend{display:flex;justify-content:center;gap:16px;margin-top:8px;font-size:11px;color:#abb3ba}.key{display:flex;align-items:center;gap:5px}.chip{width:11px;height:11px}.chip.o{background:var(--o)}.chip.b{background:var(--b)}.chip.g{background:var(--g2)}@media(max-width:720px){.workspace{grid-template-columns:1fr}.game-ui{width:95vw}}
+
+/* 轻倒角：保留 Minecraft 像素轮廓，同时消除过度尖锐感 */
+.game-ui{border-radius:10px;overflow:hidden}
+.topbar{border-radius:5px 5px 0 0}
+.pane{border-radius:7px}
+.point{border-radius:6px}
+.badge{border-radius:5px}
+.num,.namebox{border-radius:4px}
+.steps,.step{border-radius:3px}
+.capture,.metric,.format span,.cancel{border-radius:5px}
+.switch{border-radius:8px}.switch:after{border-radius:50%}
+.export{border-radius:7px}
+.track{border-radius:6px;overflow:hidden}.fill{border-radius:3px}
+.logbar{border-radius:6px}
+</style>
+<h2>MineToMesh 0.3.0 · 轻倒角工作台</h2>
+<p class="subtitle">在原有双栏结构上增加 3–7px 的克制倒角，保留像素机械感，让外框、面板和按钮更柔和。</p>
+<div class="stage">
+ <div class="game-ui">
+  <div class="topbar"><div class="logo"></div><div class="title">MineToMesh · 区域导出工作台</div><div class="status"><span class="dot"></span>minecraft:overworld　@ 12, 64, 30</div></div>
+  <div class="workspace">
+   <section class="pane">
+    <div class="pane-title"><span class="accent"></span>选区坐标</div>
+    <div class="point"><div class="point-head"><span class="badge">A</span><span>起点坐标</span></div><div class="coords"><div class="axis"><label>X</label><div class="num">-24</div><div class="steps"><div class="step">▲</div><div class="step">▼</div></div></div><div class="axis"><label>Y</label><div class="num">64</div><div class="steps"><div class="step">▲</div><div class="step">▼</div></div></div><div class="axis"><label>Z</label><div class="num">108</div><div class="steps"><div class="step">▲</div><div class="step">▼</div></div></div></div><div class="capture">⌖　记录玩家脚下方块</div></div>
+    <div class="point"><div class="point-head"><span class="badge blue">B</span><span>终点坐标</span></div><div class="coords"><div class="axis"><label>X</label><div class="num">12</div><div class="steps"><div class="step">▲</div><div class="step">▼</div></div></div><div class="axis"><label>Y</label><div class="num">82</div><div class="steps"><div class="step">▲</div><div class="step">▼</div></div></div><div class="axis"><label>Z</label><div class="num">146</div><div class="steps"><div class="step">▲</div><div class="step">▼</div></div></div></div><div class="capture">⌖　记录玩家脚下方块</div></div>
+    <div class="summary"><div class="metric">范围尺寸<strong>37 × 19 × 39</strong></div><div class="metric">总体积<strong>27,417</strong></div></div>
+    <div class="toggle-row">显示半透明选区体积 <span class="switch"></span></div>
+   </section>
+   <section class="pane">
+    <div class="pane-title"><span class="accent" style="background:var(--b)"></span>导出任务</div>
+    <div class="name-label">导出名称</div><div class="namebox">flower_factory</div>
+    <div class="format"><span>✓ glTF 2.0</span><span>✓ Quad OBJ</span><span>✓ report.json</span></div>
+    <div class="export disabled">正在导出，请保持界面开启</div>
+    <div class="progress-label"><span>写入 glTF 场景</span><span>64%</span></div><div class="track"><div class="fill"></div></div>
+    <div class="current">当前对象：create:gearbox / 12,64,30　·　队列 1/2</div>
+    <div class="cancel">取消并清理临时文件</div>
+   </section>
+  </div>
+  <div class="logbar"><span class="log-icon">◆ LIVE</span><span class="log-text">21:42:09　纹理 18/26　·　正在写入 scene.gltf　·　警告 0</span><span class="report">摘要报告 ›</span></div>
+ </div>
+ <div class="hint">橙色管理“做什么”，蓝色管理“进行到哪里”，灰色承载结构。</div>
+ <div class="legend"><span class="key"><i class="chip o"></i>操作 / 起点</span><span class="key"><i class="chip b"></i>终点 / 进度</span><span class="key"><i class="chip g"></i>面板 / 输入</span></div>
+</div>
