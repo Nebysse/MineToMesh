@@ -1,10 +1,8 @@
 package com.onecuber.mcgltf.client.workstation;
 
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import com.onecuber.mcgltf.workstation.ExportWorkstationBlockEntity;
 import com.onecuber.mcgltf.workstation.WorkstationCoordinates;
 import com.onecuber.mcgltf.world.Selection;
@@ -27,21 +25,6 @@ public final class SelectionOverlayRenderer {
     private static final int EDGE_RED = 52;
     private static final int EDGE_GREEN = 136;
     private static final int EDGE_BLUE = 216;
-
-    private static final RenderType FACE_TYPE = RenderType.create(
-            "mcgltf_overlay_faces",
-            DefaultVertexFormat.POSITION_COLOR,
-            VertexFormat.Mode.QUADS,
-            1536,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderType.RENDERTYPE_TRANSLUCENT_SHADER)
-                    .setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderType.LEQUAL_DEPTH_TEST)
-                    .setWriteMaskState(RenderType.COLOR_WRITE)
-                    .setCullState(RenderType.NO_CULL)
-                    .createCompositeState(false));
 
     private final SelectionOverlayState state;
 
@@ -85,7 +68,7 @@ public final class SelectionOverlayRenderer {
             String dimension,
             PoseStack pose,
             MultiBufferSource buffers) {
-        VertexConsumer vertices = buffers.getBuffer(FACE_TYPE);
+        VertexConsumer vertices = buffers.getBuffer(RenderType.debugQuads());
         for (Map.Entry<OverlayKey, WorkstationCoordinates> entry : active) {
             AABB box = box(entry, level, dimension);
             if (box == null) {
@@ -156,8 +139,12 @@ public final class SelectionOverlayRenderer {
                 instanceof ExportWorkstationBlockEntity blockEntity)) {
             return null;
         }
-        WorkstationCoordinates coordinates = blockEntity.coordinates();
-        state.refresh(key, coordinates);
+        WorkstationCoordinates coordinates = entry.getValue();
+        WorkstationCoordinates synchronizedCoordinates = blockEntity.coordinates();
+        if (!synchronizedCoordinates.equals(coordinates)) {
+            coordinates = synchronizedCoordinates;
+            state.refresh(key, synchronizedCoordinates);
+        }
         Selection selection = coordinates.toSelection(dimension);
         return new AABB(
                 selection.min().x(), selection.min().y(), selection.min().z(),
