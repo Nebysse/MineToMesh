@@ -145,6 +145,7 @@ public class ExportWorkstationScreen extends AbstractContainerScreen<ExportWorks
     private Button cancelButton;
     private Button overlayButton;
     private boolean overlayVisible;
+    private boolean controllerBound;
     private String statusLine = "";
 
     public ExportWorkstationScreen(
@@ -163,6 +164,10 @@ public class ExportWorkstationScreen extends AbstractContainerScreen<ExportWorks
     @Override
     protected void init() {
         super.init();
+        if (!controllerBound) {
+            controller.bind(menu.stationPos(), currentDimension());
+            controllerBound = true;
+        }
         coordinateModels.clear();
         coordinateFields.clear();
         createCoordinateWidgets();
@@ -658,6 +663,8 @@ public class ExportWorkstationScreen extends AbstractContainerScreen<ExportWorks
     @Override
     public void onClose() {
         controller.screenClosed();
+        controller.unbind();
+        controllerBound = false;
         super.onClose();
     }
 

@@ -72,6 +72,8 @@ public final class WorkstationExportController {
     public boolean accept(ExportGrantedPayload grant) {
         Objects.requireNonNull(grant, "grant");
         if (state != State.WAITING_FOR_GRANT
+                || boundStation == null
+                || boundDimension == null
                 || !boundStation.equals(grant.stationPos())
                 || !boundDimension.equals(grant.dimension())) {
             return false;

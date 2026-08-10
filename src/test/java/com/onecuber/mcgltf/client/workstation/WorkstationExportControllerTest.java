@@ -1,5 +1,6 @@
 package com.onecuber.mcgltf.client.workstation;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,6 +32,14 @@ class WorkstationExportControllerTest {
         jobs = new FakeJobManager();
         controller = new WorkstationExportController(factory, jobs);
         controller.bind(station, dimension);
+    }
+
+    @Test
+    void unboundControllerRejectsGrantWithoutThrowing() {
+        WorkstationExportController unbound =
+                new WorkstationExportController(factory, jobs);
+        unbound.requested("flower_factory");
+        assertFalse(assertDoesNotThrow(() -> unbound.accept(grant("flower_factory"))));
     }
 
     @Test
