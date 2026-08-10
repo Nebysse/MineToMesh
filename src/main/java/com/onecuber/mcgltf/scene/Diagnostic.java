@@ -26,6 +26,7 @@ public record Diagnostic(
     }
 
     public enum Severity {
+        INFO,
         WARNING,
         FAILURE,
         FATAL

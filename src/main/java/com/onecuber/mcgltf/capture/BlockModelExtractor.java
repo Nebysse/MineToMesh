@@ -66,7 +66,7 @@ public final class BlockModelExtractor {
         Objects.requireNonNull(sectionAccumulator, "sectionAccumulator");
         BlockState state = level.getBlockState(position);
         if (state.isAir() || state.getRenderShape() != RenderShape.MODEL) {
-            return new CaptureResult(BatchCounters.ZERO, List.of());
+            return new CaptureResult(CaptureState.EMPTY, BatchCounters.ZERO, List.of());
         }
 
         String objectId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
@@ -113,7 +113,7 @@ public final class BlockModelExtractor {
                     "",
                     exception.getClass().getName(),
                     exception.getMessage() == null ? "Block model capture failed" : exception.getMessage()));
-            return new CaptureResult(BatchCounters.ZERO, diagnostics);
+            return new CaptureResult(CaptureState.FAILED, BatchCounters.ZERO, diagnostics);
         }
 
         for (PendingStream stream : pending) {
@@ -123,7 +123,9 @@ public final class BlockModelExtractor {
                 ? BatchCounters.ZERO
                 : new BatchCounters(0, 1, 0, 0, 0, 0, 0,
                         pending.size() * 2L, 0);
-        return new CaptureResult(counters, diagnostics);
+        CaptureState captureState = pending.isEmpty()
+                ? CaptureState.EMPTY : CaptureState.GEOMETRY;
+        return new CaptureResult(captureState, counters, diagnostics);
     }
 
     private PendingStream captureQuad(
@@ -212,10 +214,18 @@ public final class BlockModelExtractor {
             List<Vertex> vertices) {
     }
 
-    public record CaptureResult(BatchCounters counters, List<Diagnostic> diagnostics) {
+    public record CaptureResult(
+            CaptureState state,
+            BatchCounters counters,
+            List<Diagnostic> diagnostics) {
         public CaptureResult {
+            Objects.requireNonNull(state, "state");
             Objects.requireNonNull(counters, "counters");
             diagnostics = List.copyOf(diagnostics);
+        }
+
+        public boolean hasGeometry() {
+            return state == CaptureState.GEOMETRY;
         }
     }
 }

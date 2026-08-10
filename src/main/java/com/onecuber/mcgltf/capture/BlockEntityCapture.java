@@ -7,7 +7,6 @@ import com.onecuber.mcgltf.scene.CapturedNode;
 import com.onecuber.mcgltf.scene.Diagnostic;
 import com.onecuber.mcgltf.scene.MaterialKey;
 import com.onecuber.mcgltf.scene.PrimitiveData;
-import com.onecuber.mcgltf.scene.Vec3f;
 import com.onecuber.mcgltf.world.BlockPoint;
 import com.onecuber.mcgltf.world.Selection;
 import java.util.ArrayList;
@@ -56,7 +55,11 @@ public final class BlockEntityCapture {
                     "",
                     "",
                     "Block entity has no renderer and is represented by its block model");
-            return new CaptureResult(Optional.empty(), List.of(diagnostic), BatchCounters.ZERO);
+            return new CaptureResult(
+                    Optional.empty(),
+                    CaptureState.EMPTY,
+                    List.of(diagnostic),
+                    blockEntityCounter());
         }
 
         CapturingMultiBufferSource buffers = new CapturingMultiBufferSource(
@@ -76,62 +79,44 @@ public final class BlockEntityCapture {
                         extras);
                 return new CaptureResult(
                         Optional.of(node),
+                        CaptureState.GEOMETRY,
                         captured.diagnostics(),
                         new BatchCounters(0, 0, 0, 1, 0, 0, 0,
                                 triangleCount(captured.primitives()), 0));
             }
-            CaptureResult fallback = fallback(
-                    objectId, registryId, position, selection,
-                    renderer.getClass().getName(),
-                    "BLOCK_ENTITY_ZERO_VERTICES",
-                    "Block entity renderer emitted no exportable vertices",
-                    null);
             List<Diagnostic> diagnostics = new ArrayList<>(captured.diagnostics());
-            diagnostics.addAll(fallback.diagnostics());
-            return new CaptureResult(fallback.node(), diagnostics, fallback.counters());
-        } catch (Exception exception) {
-            return fallback(
-                    objectId, registryId, position, selection,
+            diagnostics.add(diagnostic(
+                    Diagnostic.Severity.INFO,
+                    "AUXILIARY_RENDERER_EMPTY",
+                    objectId,
+                    position,
+                    selection,
                     renderer.getClass().getName(),
+                    "",
+                    "Block entity renderer emitted no exportable vertices"));
+            return new CaptureResult(
+                    Optional.empty(), CaptureState.EMPTY, diagnostics, blockEntityCounter());
+        } catch (Exception exception) {
+            Diagnostic diagnostic = diagnostic(
+                    Diagnostic.Severity.FAILURE,
                     "BLOCK_ENTITY_CAPTURE_FAILED",
+                    objectId,
+                    position,
+                    selection,
+                    renderer.getClass().getName(),
+                    exception.getClass().getName(),
                     exception.getMessage() == null
-                            ? "Block entity capture failed" : exception.getMessage(),
-                    exception);
+                            ? "Block entity capture failed" : exception.getMessage());
+            return new CaptureResult(
+                    Optional.empty(),
+                    CaptureState.FAILED,
+                    List.of(diagnostic),
+                    blockEntityCounter());
         }
     }
 
-    private static CaptureResult fallback(
-            String objectId,
-            String registryId,
-            BlockPos position,
-            Selection selection,
-            String rendererClass,
-            String code,
-            String message,
-            Exception exception) {
-        Map<String, Object> extras = extras(registryId, position, selection, rendererClass);
-        extras.put("fallbackReason", code);
-        float x = position.getX() - selection.min().x();
-        float y = position.getY() - selection.min().y();
-        float z = position.getZ() - selection.min().z();
-        CapturedNode placeholder = PlaceholderFactory.create(
-                objectId,
-                new Vec3f(x, y, -z - 1.0F),
-                new Vec3f(x + 1.0F, y + 1.0F, -z),
-                extras);
-        Diagnostic diagnostic = diagnostic(
-                Diagnostic.Severity.FAILURE,
-                code,
-                objectId,
-                position,
-                selection,
-                rendererClass,
-                exception == null ? "" : exception.getClass().getName(),
-                message);
-        return new CaptureResult(
-                Optional.of(placeholder),
-                List.of(diagnostic),
-                new BatchCounters(0, 0, 0, 1, 0, 0, 0, 12, 1));
+    private static BatchCounters blockEntityCounter() {
+        return new BatchCounters(0, 0, 0, 1, 0, 0, 0, 0, 0);
     }
 
     private static PoseStack blockEntityPose(BlockPos position, Selection selection) {
@@ -208,10 +193,12 @@ public final class BlockEntityCapture {
 
     public record CaptureResult(
             Optional<CapturedNode> node,
+            CaptureState state,
             List<Diagnostic> diagnostics,
             BatchCounters counters) {
         public CaptureResult {
             node = Objects.requireNonNull(node, "node");
+            Objects.requireNonNull(state, "state");
             diagnostics = List.copyOf(diagnostics);
             Objects.requireNonNull(counters, "counters");
         }
