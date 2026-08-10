@@ -901,9 +901,11 @@ public net.minecraft.client.renderer.RenderType$CompositeState textureState
 public net.minecraft.client.renderer.RenderType$CompositeState transparencyState
 public net.minecraft.client.renderer.RenderType$CompositeState cullState
 public net.minecraft.client.renderer.RenderStateShard$EmptyTextureStateShard cutoutTexture()Ljava/util/Optional;
+public net.minecraft.client.renderer.RenderStateShard$MultiTextureStateShard cutoutTexture()Ljava/util/Optional;
+public net.minecraft.client.renderer.RenderStateShard$TextureStateShard cutoutTexture()Ljava/util/Optional;
 ```
 
-If ModDevGradle reports an owner/name mismatch, inspect `build/createMinecraftArtifacts` sources and correct only these five lines before proceeding; do not widen additional Minecraft classes.
+If ModDevGradle reports an owner/name mismatch, inspect `build/createMinecraftArtifacts` sources and correct only these narrowly scoped class, field, and override methods before proceeding; do not widen unrelated Minecraft classes.
 
 - [ ] **Step 5: Implement RenderType inspection**
 
