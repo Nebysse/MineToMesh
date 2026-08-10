@@ -2,6 +2,9 @@ package com.onecuber.mcgltf.client;
 
 import com.onecuber.mcgltf.McGltf;
 import com.onecuber.mcgltf.client.workstation.ExportWorkstationScreen;
+import com.onecuber.mcgltf.client.workstation.OverlayKey;
+import com.onecuber.mcgltf.client.workstation.SelectionOverlayRenderer;
+import com.onecuber.mcgltf.client.workstation.SelectionOverlayState;
 import com.onecuber.mcgltf.client.workstation.WorkstationExportController;
 import com.onecuber.mcgltf.command.ClientMessages;
 import com.onecuber.mcgltf.command.McGltfCommands;
@@ -32,6 +35,8 @@ public final class McGltfClient {
     private final SelectionStore selectionStore = new SelectionStore();
     private final ExportJobManager jobManager = new ExportJobManager();
     private final WorkstationExportController workstationController;
+    private final SelectionOverlayState overlayState = new SelectionOverlayState();
+    private final SelectionOverlayRenderer overlayRenderer;
     private final McGltfCommands commands;
     private String activeDimension;
     private ManagedJob notifiedTerminalJob;
@@ -44,6 +49,7 @@ public final class McGltfClient {
                         name,
                         telemetry),
                 WorkstationExportController.fromManager(jobManager));
+        overlayRenderer = new SelectionOverlayRenderer(overlayState);
         WorkstationClientReceiver.install(
                 workstationController::accept, workstationController::reject);
         commands = new McGltfCommands(selectionStore, jobManager,
@@ -52,6 +58,7 @@ public final class McGltfClient {
         NeoForge.EVENT_BUS.addListener(commands::onRegisterCommands);
         NeoForge.EVENT_BUS.addListener(this::onClientTick);
         NeoForge.EVENT_BUS.addListener(this::onLoggingOut);
+        NeoForge.EVENT_BUS.addListener(overlayRenderer::onRenderLevel);
         modBus.addListener(this::onRegisterReloadListeners);
         modBus.addListener(this::onRegisterMenuScreens);
     }
@@ -62,6 +69,7 @@ public final class McGltfClient {
             String dimension = minecraft.level.dimension().location().toString();
             if (activeDimension != null && !activeDimension.equals(dimension)) {
                 selectionStore.clear();
+                overlayState.dimensionChanged(dimension);
                 jobManager.cancel("dimension_change");
             }
             activeDimension = dimension;
@@ -99,7 +107,8 @@ public final class McGltfClient {
                             Inventory inventory,
                             Component title) {
                         return new ExportWorkstationScreen(
-                                menu, inventory, title, workstationController);
+                                menu, inventory, title,
+                                workstationController, overlayState);
                     }
                 });
     }
@@ -107,6 +116,7 @@ public final class McGltfClient {
     private void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         selectionStore.clear();
         activeDimension = null;
+        overlayState.clear();
         jobManager.cancel("logout");
         workstationController.unbind();
         WorkstationClientReceiver.reset();

@@ -55,6 +55,7 @@ public class ExportWorkstationScreen extends AbstractContainerScreen<ExportWorks
     }
 
     private final WorkstationExportController controller;
+    private final SelectionOverlayState overlayState;
     private final List<CoordinateEditorModel> coordinateModels = new ArrayList<>();
     private final List<EditBox> coordinateFields = new ArrayList<>();
     private EditBox nameField;
@@ -68,9 +69,11 @@ public class ExportWorkstationScreen extends AbstractContainerScreen<ExportWorks
             ExportWorkstationMenu menu,
             Inventory inventory,
             Component title,
-            WorkstationExportController controller) {
+            WorkstationExportController controller,
+            SelectionOverlayState overlayState) {
         super(menu, inventory, title);
         this.controller = controller;
+        this.overlayState = overlayState;
         this.imageWidth = 384;
         this.imageHeight = 216;
     }
@@ -181,7 +184,14 @@ public class ExportWorkstationScreen extends AbstractContainerScreen<ExportWorks
     }
 
     private void toggleOverlay() {
-        overlayVisible = !overlayVisible;
+        OverlayKey key = new OverlayKey(currentDimension(), menu.stationPos());
+        WorkstationCoordinates coordinates = menu.coordinates();
+        overlayState.toggle(key, coordinates);
+        overlayVisible = overlayState.visible(key);
+    }
+
+    private String currentDimension() {
+        return minecraft.level.dimension().location().toString();
     }
 
     private void requestExport() {
