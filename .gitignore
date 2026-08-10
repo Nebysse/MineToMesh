@@ -1,1 +1,11 @@
 .worktrees/
+.gradle/
+build/
+run/
+run-data/
+.idea/
+*.iml
+out/
+node_modules/
+tools/package-lock.json
+mcgltf-exports/
