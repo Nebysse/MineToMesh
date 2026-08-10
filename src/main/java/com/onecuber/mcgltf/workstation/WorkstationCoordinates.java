@@ -30,6 +30,14 @@ public record WorkstationCoordinates(BlockPos first, BlockPos second) {
                 : new WorkstationCoordinates(first, changed);
     }
 
+    public WorkstationCoordinates withEndpoint(Endpoint endpoint, BlockPos position) {
+        Objects.requireNonNull(endpoint, "endpoint");
+        Objects.requireNonNull(position, "position");
+        return endpoint == Endpoint.FIRST
+                ? new WorkstationCoordinates(position.immutable(), second)
+                : new WorkstationCoordinates(first, position.immutable());
+    }
+
     public Selection toSelection(String dimension) {
         Objects.requireNonNull(dimension, "dimension");
         return Selection.of(point(dimension, first), point(dimension, second));

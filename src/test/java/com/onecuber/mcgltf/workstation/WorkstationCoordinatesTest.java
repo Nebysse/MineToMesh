@@ -17,6 +17,16 @@ class WorkstationCoordinatesTest {
     }
 
     @Test
+    void replacesWholeEndpoint() {
+        WorkstationCoordinates source = new WorkstationCoordinates(
+                new BlockPos(1, 2, 3), new BlockPos(4, 5, 6));
+        WorkstationCoordinates changed = source.withEndpoint(
+                Endpoint.FIRST, new BlockPos(7, 8, 9));
+        assertEquals(new BlockPos(7, 8, 9), changed.first());
+        assertEquals(new BlockPos(4, 5, 6), changed.second());
+    }
+
+    @Test
     void createsNormalizedInclusiveSelection() {
         Selection selection = new WorkstationCoordinates(
                 new BlockPos(12, 82, 146), new BlockPos(-24, 64, 108))

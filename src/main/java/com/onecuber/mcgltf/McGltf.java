@@ -1,6 +1,7 @@
 package com.onecuber.mcgltf;
 
 import com.onecuber.mcgltf.content.McGltfContent;
+import com.onecuber.mcgltf.network.WorkstationPayloads;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 
@@ -12,5 +13,6 @@ public final class McGltf {
 
     public McGltf(IEventBus modBus) {
         McGltfContent.register(modBus);
+        WorkstationPayloads.register(modBus);
     }
 }
