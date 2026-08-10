@@ -769,12 +769,14 @@ Scan common entry-point bytecode with `jdeps` or constant-pool inspection and fa
 
 - [ ] **Step 3: Add a noninteractive server smoke task**
 
-Configure a NeoForge run named `serverSmoke` that starts with `--nogui`, loads MineToMesh 0.3.0, writes a known ready marker, and exits through a generated `stop` command. Configure the generated `runServerSmoke` task with a 90-second timeout and treat client-class linkage as failure.
+Configure a NeoForge run named `serverSmoke` that starts with `--nogui`, loads MineToMesh 0.3.0, writes the `MINETOMESH_SERVER_READY` marker, and exits through `MinecraftServer.halt(false)`. Configure the generated `runServerSmoke` task with a 90-second timeout and treat client-class linkage as failure.
+
+> **Adjustment:** moddev 2.0.143 exposes no `gameTestServer()` run type (RunModel only provides client/data/server), so no automated `runGameTestServer` task exists on 1.21.1. The GameTests in `WorkstationGameTests` stay available as testmod assets runnable via the in-game `/test` command; automated server-side coverage is provided by `ServerClassIsolationTest` plus `runServerSmoke`, which loads the real Dedicated Server and fails on any client-class linkage.
 
 - [ ] **Step 4: Run all safety checks**
 
 ```powershell
-.\gradlew.bat test --tests com.onecuber.mcgltf.ServerClassIsolationTest runGameTestServer runServerSmoke
+.\gradlew.bat test --tests com.onecuber.mcgltf.ServerClassIsolationTest runServerSmoke
 ```
 
 Expected: all game tests pass and no client classes load on server.

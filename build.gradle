@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -38,6 +40,11 @@ neoForge {
             server()
             programArgument '--nogui'
         }
+        serverSmoke {
+            server()
+            programArgument '--nogui'
+            systemProperty 'mcgltf.serverSmoke', 'true'
+        }
         configureEach {
             logLevel = org.slf4j.event.Level.INFO
         }
@@ -74,6 +81,10 @@ dependencies {
 
 tasks.named('test', Test).configure {
     useJUnitPlatform()
+}
+
+tasks.named('runServerSmoke', JavaExec).configure {
+    timeout.set(Duration.ofSeconds(90))
 }
 
 tasks.withType(JavaCompile).configureEach {
