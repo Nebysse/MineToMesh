@@ -842,7 +842,7 @@ mcgltf
 └─ cancel
 ```
 
-Use `StringArgumentType.greedyString()` for Unicode names. `pos1/pos2` read `Minecraft.getInstance().player.blockPosition()` and `level.dimension().location().toString()`. Commands return Brigadier success 1 or failure 0 and send translated components.
+Use `StringArgumentType.string()` for Unicode names so the trailing `confirm` literal remains reachable; names containing spaces are entered as quoted Brigadier strings. `pos1/pos2` read `Minecraft.getInstance().player.blockPosition()` and `level.dimension().location().toString()`. Commands return Brigadier success 1 or failure 0 and send translated components.
 
 - [ ] **Step 4: Add client event wiring**
 

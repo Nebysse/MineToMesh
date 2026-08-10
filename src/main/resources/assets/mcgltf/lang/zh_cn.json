@@ -1,0 +1,15 @@
+{
+  "commands.mcgltf.pos_set": "已将位置 %s 设置为 %s, %s, %s，维度：%s",
+  "commands.mcgltf.selection_incomplete": "导出前请先设置两个选区点。",
+  "commands.mcgltf.selection_cross_dimension": "两个选区点必须位于同一维度。",
+  "commands.mcgltf.name_unsafe": "导出名称无效：%s",
+  "commands.mcgltf.confirm_required": "选区包含 %s 个方块。请运行 %s 确认导出。",
+  "commands.mcgltf.already_running": "已有一个 mcgltf 导出任务正在运行。",
+  "commands.mcgltf.started": "已开始导出：%s",
+  "commands.mcgltf.status": "导出状态：%s",
+  "commands.mcgltf.idle": "当前没有活动的 mcgltf 导出任务。",
+  "commands.mcgltf.cancelled": "导出已取消。",
+  "commands.mcgltf.completed": "导出完成：%s，警告数：%s。",
+  "commands.mcgltf.completed_with_warnings": "导出完成但存在警告：%s，警告数：%s。",
+  "commands.mcgltf.failed": "导出失败：%s"
+}
