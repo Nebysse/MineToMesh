@@ -46,6 +46,10 @@ public final class ExportJobManager {
         return job == null ? Optional.empty() : Optional.of(job.progress());
     }
 
+    public Optional<ManagedJob> activeJob() {
+        return Optional.ofNullable(activeJob.get());
+    }
+
     static BlockingQueue<ChunkBatch> newBatchQueue() {
         return new ArrayBlockingQueue<>(WRITER_QUEUE_CAPACITY);
     }

@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "gltf-validator": "2.0.0-dev.3.10"
+  },
+  "scripts": {
+    "validate": "node validate-gltf.mjs"
+  }
+}

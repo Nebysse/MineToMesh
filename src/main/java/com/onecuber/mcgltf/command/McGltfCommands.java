@@ -98,8 +98,13 @@ public final class McGltfCommands {
         }
 
         try {
+            if (jobManager.activeJob().filter(job -> !job.isTerminal()).isPresent()) {
+                ClientMessages.send(ClientMessages.alreadyRunning());
+                return 0;
+            }
             ManagedJob job = jobFactory.create(selection, name);
             if (!jobManager.start(job)) {
+                job.cancel("rejected_already_running");
                 ClientMessages.send(ClientMessages.alreadyRunning());
                 return 0;
             }

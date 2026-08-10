@@ -1,0 +1,247 @@
+package com.onecuber.mcgltf.job;
+
+import com.onecuber.mcgltf.scene.ChunkBatch;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.LongSupplier;
+
+public final class ExportJob implements ManagedJob {
+    private final CaptureSource source;
+    private final BatchSink sink;
+    private final LongSupplier nanoTime;
+    private final Duration budgetDuration;
+    private final long startedAtNanos;
+    private final long totalWorkItems;
+
+    private JobState state = JobState.CAPTURING;
+    private boolean entitiesCaptured;
+    private int sectionIndex;
+    private SectionCapture currentSection;
+    private ChunkBatch pendingBatch;
+    private String pendingObjectId = "";
+    private long completedWorkItems;
+    private String currentObjectId = "entities";
+    private Optional<Path> finalDirectory = Optional.empty();
+    private Optional<String> failureReason = Optional.empty();
+    private String outcomeStatus = "running";
+    private long warningCount;
+
+    public ExportJob(
+            CaptureSource source,
+            BatchSink sink,
+            LongSupplier nanoTime,
+            Duration budgetDuration) {
+        this.source = Objects.requireNonNull(source, "source");
+        this.sink = Objects.requireNonNull(sink, "sink");
+        this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
+        this.budgetDuration = Objects.requireNonNull(budgetDuration, "budgetDuration");
+        if (budgetDuration.isNegative() || budgetDuration.isZero()) {
+            throw new IllegalArgumentException("Capture budget must be positive");
+        }
+        this.startedAtNanos = nanoTime.getAsLong();
+        this.totalWorkItems = Math.addExact(1L, source.sectionCount());
+    }
+
+    @Override
+    public void tick() {
+        if (state.isTerminal()) {
+            return;
+        }
+        if (consumeWriterResult()) {
+            return;
+        }
+        if (state == JobState.WRITING) {
+            return;
+        }
+        CaptureBudget budget = CaptureBudget.start(budgetDuration, nanoTime);
+        try {
+            while (state == JobState.CAPTURING && budget.hasTime()) {
+                if (pendingBatch != null) {
+                    if (!sink.offer(pendingBatch)) {
+                        return;
+                    }
+                    pendingBatch = null;
+                    completedWorkItems++;
+                    currentObjectId = pendingObjectId;
+                    pendingObjectId = "";
+                    continue;
+                }
+                if (!entitiesCaptured) {
+                    pendingBatch = source.captureEntities();
+                    pendingObjectId = "entities";
+                    entitiesCaptured = true;
+                    continue;
+                }
+                if (currentSection == null) {
+                    if (sectionIndex >= source.sectionCount()) {
+                        if (!sink.finishInput()) {
+                            return;
+                        }
+                        transition(JobState.WRITING);
+                        return;
+                    }
+                    currentSection = source.openSection(sectionIndex);
+                    currentObjectId = currentSection.objectId();
+                }
+                if (currentSection.hasNext()) {
+                    currentSection.captureNext();
+                    continue;
+                }
+                pendingBatch = currentSection.finish();
+                pendingObjectId = currentSection.objectId();
+                currentSection = null;
+                sectionIndex++;
+            }
+        } catch (OutOfMemoryError error) {
+            fail("Out of memory during export capture");
+        } catch (Exception exception) {
+            fail(exception.getMessage() == null
+                    ? exception.getClass().getSimpleName() : exception.getMessage());
+        }
+    }
+
+    @Override
+    public void cancel(String reason) {
+        Objects.requireNonNull(reason, "reason");
+        if (state.isTerminal()) {
+            return;
+        }
+        sink.cancel();
+        outcomeStatus = "cancelled";
+        failureReason = Optional.of(reason);
+        state = JobState.CANCELLED;
+    }
+
+    @Override
+    public JobState state() {
+        return state;
+    }
+
+    @Override
+    public ExportProgress progress() {
+        long elapsedNanos = Math.max(0L, nanoTime.getAsLong() - startedAtNanos);
+        return new ExportProgress(
+                state,
+                Math.min(completedWorkItems, totalWorkItems),
+                totalWorkItems,
+                sink.queueDepth(),
+                Duration.ofNanos(elapsedNanos),
+                currentObjectId);
+    }
+
+    public Optional<Path> finalDirectory() {
+        return finalDirectory;
+    }
+
+    public Optional<String> failureReason() {
+        return failureReason;
+    }
+
+    public String outcomeStatus() {
+        return outcomeStatus;
+    }
+
+    public long warningCount() {
+        return warningCount;
+    }
+
+    private boolean consumeWriterResult() {
+        Optional<WriterResult> available = sink.pollResult();
+        if (available.isEmpty()) {
+            return false;
+        }
+        WriterResult result = available.orElseThrow();
+        if (result.success()) {
+            if (state != JobState.WRITING) {
+                fail("Writer completed before capture reached WRITING state");
+                return true;
+            }
+            finalDirectory = result.outputDirectory();
+            warningCount = result.warningCount();
+            outcomeStatus = result.status();
+            transition(JobState.COMPLETED);
+        } else {
+            failureReason = Optional.of(result.error());
+            outcomeStatus = "failed";
+            transition(JobState.FAILED);
+        }
+        return true;
+    }
+
+    private void fail(String reason) {
+        sink.cancel();
+        failureReason = Optional.of(reason);
+        outcomeStatus = "failed";
+        state = JobState.FAILED;
+    }
+
+    private void transition(JobState target) {
+        if (!state.canTransitionTo(target)) {
+            throw new IllegalStateException("Illegal job transition " + state + " -> " + target);
+        }
+        state = target;
+    }
+
+    public interface CaptureSource {
+        ChunkBatch captureEntities() throws Exception;
+
+        int sectionCount();
+
+        SectionCapture openSection(int index) throws Exception;
+    }
+
+    public interface SectionCapture {
+        String objectId();
+
+        boolean hasNext();
+
+        void captureNext() throws Exception;
+
+        ChunkBatch finish() throws Exception;
+    }
+
+    public interface BatchSink {
+        boolean offer(ChunkBatch batch) throws Exception;
+
+        int queueDepth();
+
+        boolean finishInput() throws Exception;
+
+        Optional<WriterResult> pollResult();
+
+        void cancel();
+    }
+
+    public record WriterResult(
+            boolean success,
+            Optional<Path> outputDirectory,
+            long warningCount,
+            String status,
+            String error) {
+        public WriterResult {
+            outputDirectory = Objects.requireNonNull(outputDirectory, "outputDirectory");
+            Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(error, "error");
+            if (warningCount < 0) {
+                throw new IllegalArgumentException("Warning count must not be negative");
+            }
+            if (success && outputDirectory.isEmpty()) {
+                throw new IllegalArgumentException("Successful writer result requires an output directory");
+            }
+            if (!success && error.isBlank()) {
+                throw new IllegalArgumentException("Failed writer result requires an error");
+            }
+        }
+
+        public static WriterResult success(Path directory, long warnings, String status) {
+            return new WriterResult(true, Optional.of(directory), warnings, status, "");
+        }
+
+        public static WriterResult failure(String error) {
+            return new WriterResult(false, Optional.empty(), 0, "failed", error);
+        }
+    }
+}
