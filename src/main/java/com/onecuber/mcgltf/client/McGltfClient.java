@@ -1,23 +1,30 @@
 package com.onecuber.mcgltf.client;
 
 import com.onecuber.mcgltf.McGltf;
+import com.onecuber.mcgltf.client.workstation.ExportWorkstationScreen;
 import com.onecuber.mcgltf.client.workstation.WorkstationExportController;
 import com.onecuber.mcgltf.command.ClientMessages;
 import com.onecuber.mcgltf.command.McGltfCommands;
+import com.onecuber.mcgltf.content.McGltfContent;
 import com.onecuber.mcgltf.job.DefaultExportPipeline;
 import com.onecuber.mcgltf.job.ExportJob;
 import com.onecuber.mcgltf.job.ExportJobManager;
 import com.onecuber.mcgltf.job.ManagedJob;
 import com.onecuber.mcgltf.network.WorkstationClientReceiver;
+import com.onecuber.mcgltf.workstation.ExportWorkstationMenu;
 import com.onecuber.mcgltf.world.SelectionStore;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
+import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
 @Mod(value = McGltf.MOD_ID, dist = Dist.CLIENT)
@@ -46,6 +53,7 @@ public final class McGltfClient {
         NeoForge.EVENT_BUS.addListener(this::onClientTick);
         NeoForge.EVENT_BUS.addListener(this::onLoggingOut);
         modBus.addListener(this::onRegisterReloadListeners);
+        modBus.addListener(this::onRegisterMenuScreens);
     }
 
     private void onClientTick(ClientTickEvent.Post event) {
@@ -80,6 +88,20 @@ public final class McGltfClient {
                         exportJob.failureReason().orElse("Unknown export failure")));
             }
         }
+    }
+
+    private void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
+        event.register(McGltfContent.EXPORT_WORKSTATION_MENU.get(),
+                new MenuScreens.ScreenConstructor<ExportWorkstationMenu, ExportWorkstationScreen>() {
+                    @Override
+                    public ExportWorkstationScreen create(
+                            ExportWorkstationMenu menu,
+                            Inventory inventory,
+                            Component title) {
+                        return new ExportWorkstationScreen(
+                                menu, inventory, title, workstationController);
+                    }
+                });
     }
 
     private void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
