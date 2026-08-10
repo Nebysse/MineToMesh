@@ -3,7 +3,7 @@
 - 状态：已批准
 - 日期：2026-08-10
 - 目标版本：Minecraft 1.21.1
-- 模组平台：NeoForge 21.1.248
+- 模组平台：NeoForge 21.1.244 及后续兼容的 21.1.x
 - Java：21
 - Mod ID：`mcgltf`
 - 显示名称：`MC glTF Exporter`

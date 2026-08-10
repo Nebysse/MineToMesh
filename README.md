@@ -13,7 +13,7 @@
 
 ## 安装
 
-1. 安装 Minecraft 1.21.1、NeoForge 21.1.248 或更高的 21.1 兼容版本。
+1. 安装 Minecraft 1.21.1、NeoForge 21.1.244 或更高的兼容 21.1.x 版本。
 2. 将 `mcgltf-0.1.0.jar` 放入客户端 `.minecraft/mods/`。
 3. 启动客户端。服务端无需安装本模组。
 

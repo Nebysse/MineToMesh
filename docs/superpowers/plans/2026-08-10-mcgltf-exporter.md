@@ -6,7 +6,7 @@
 
 **Architecture:** Minecraft render-facing adapters capture final baked or rendered geometry on the client thread into small immutable scene batches. A bounded writer thread streams those batches into an external glTF binary buffer, writes independent PNG/material files, assembles the JSON document, validates references, and atomically publishes the completed export directory.
 
-**Tech Stack:** Java 21, NeoForge 21.1.248, ModDevGradle 2.0.143, Gradle 9.2.1, JUnit Jupiter 5.11.4, Gson supplied by Minecraft, glTF 2.0, Khronos glTF Validator npm package 2.0.0-dev.3.10.
+**Tech Stack:** Java 21, NeoForge 21.1.244, ModDevGradle 2.0.143, Gradle 9.2.1, JUnit Jupiter 5.11.4, Gson supplied by Minecraft, glTF 2.0, Khronos glTF Validator npm package 2.0.0-dev.3.10.
 
 ---
 
@@ -158,7 +158,7 @@ org.gradle.caching=true
 org.gradle.configuration-cache=true
 minecraft_version=1.21.1
 minecraft_version_range=[1.21.1,1.21.2)
-neo_version=21.1.248
+neo_version=21.1.244
 loader_version_range=[4,)
 mod_id=mcgltf
 mod_name=MC glTF Exporter
@@ -919,7 +919,7 @@ If ModDevGradle reports an owner/name mismatch, inspect `build/createMinecraftAr
 
 Run: `./gradlew.bat test build`
 
-Expected: consumer tests pass and access transforms compile against NeoForge 21.1.248.
+Expected: consumer tests pass and access transforms compile against NeoForge 21.1.244.
 
 ```powershell
 git add src/main/resources/META-INF src/main/java/com/onecuber/mcgltf/capture src/test/java/com/onecuber/mcgltf/capture
@@ -1187,7 +1187,7 @@ Register renderers through `EntityRenderersEvent.RegisterRenderers`. Both visibl
 
 - [ ] **Step 5: Add resource JSON**
 
-Each blockstate maps the empty variant to its same-named block model. The model-data block uses parent `minecraft:block/cube_all` and texture `minecraft:block/amethyst_block`. The rendered and GPU-only blocks use parent `minecraft:block/block` so only their BER contributes geometry. The test metadata declares MIT and dependencies on `mcgltf`, Minecraft 1.21.1, and NeoForge 21.1.248.
+Each blockstate maps the empty variant to its same-named block model. The model-data block uses parent `minecraft:block/cube_all` and texture `minecraft:block/amethyst_block`. The rendered and GPU-only blocks use parent `minecraft:block/block` so only their BER contributes geometry. The test metadata declares MIT and dependencies on `mcgltf`, Minecraft 1.21.1, and NeoForge 21.1.244.
 
 - [ ] **Step 6: Compile the fixture and verify production isolation**
 

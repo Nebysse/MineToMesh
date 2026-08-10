@@ -96,7 +96,7 @@ public final class DefaultExportPipeline {
         Selection selection = plan.selection();
         Map<String, Object> extras = new LinkedHashMap<>();
         extras.put("minecraftVersion", "1.21.1");
-        extras.put("neoForgeVersion", "21.1.248");
+        extras.put("neoForgeVersion", loadedModVersion("neoforge"));
         extras.put("exporterVersion", McGltf.VERSION);
         extras.put("dimension", selection.min().dimension());
         extras.put("selectionMin", List.of(
@@ -113,6 +113,14 @@ public final class DefaultExportPipeline {
                 .toList());
         extras.put("snapshotMode", "rolling_client_snapshot");
         return extras;
+    }
+
+    private static String loadedModVersion(String modId) {
+        return ModList.get().getMods().stream()
+                .filter(info -> info.getModId().equals(modId))
+                .map(info -> info.getVersion().toString())
+                .findFirst()
+                .orElse("unknown");
     }
 
     private static final class ProductionCaptureSource implements ExportJob.CaptureSource {
