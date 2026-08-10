@@ -1,5 +1,7 @@
 package com.onecuber.mcgltf.job;
 
+import java.util.Optional;
+
 public interface ManagedJob {
     void tick();
 
@@ -11,5 +13,9 @@ public interface ManagedJob {
 
     default boolean isTerminal() {
         return state().isTerminal();
+    }
+
+    default Optional<ExportSummary> summary() {
+        return Optional.empty();
     }
 }

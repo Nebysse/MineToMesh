@@ -26,18 +26,30 @@ public final class ExportJob implements ManagedJob {
     private String currentObjectId = "entities";
     private Optional<Path> finalDirectory = Optional.empty();
     private Optional<String> failureReason = Optional.empty();
+    private Optional<ExportSummary> summary = Optional.empty();
     private String outcomeStatus = "running";
     private long warningCount;
+    private final ExportTelemetry telemetry;
 
     public ExportJob(
             CaptureSource source,
             BatchSink sink,
             LongSupplier nanoTime,
             Duration budgetDuration) {
+        this(source, sink, nanoTime, budgetDuration, new ExportTelemetry());
+    }
+
+    public ExportJob(
+            CaptureSource source,
+            BatchSink sink,
+            LongSupplier nanoTime,
+            Duration budgetDuration,
+            ExportTelemetry telemetry) {
         this.source = Objects.requireNonNull(source, "source");
         this.sink = Objects.requireNonNull(sink, "sink");
         this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
         this.budgetDuration = Objects.requireNonNull(budgetDuration, "budgetDuration");
+        this.telemetry = Objects.requireNonNull(telemetry, "telemetry");
         if (budgetDuration.isNegative() || budgetDuration.isZero()) {
             throw new IllegalArgumentException("Capture budget must be positive");
         }
@@ -112,6 +124,15 @@ public final class ExportJob implements ManagedJob {
         sink.cancel();
         outcomeStatus = "cancelled";
         failureReason = Optional.of(reason);
+        summary = Optional.of(new ExportSummary(
+                "cancelled",
+                Optional.empty(),
+                0,
+                0,
+                0,
+                warningCount,
+                elapsed(),
+                Optional.of(reason)));
         state = JobState.CANCELLED;
     }
 
@@ -122,14 +143,26 @@ public final class ExportJob implements ManagedJob {
 
     @Override
     public ExportProgress progress() {
-        long elapsedNanos = Math.max(0L, nanoTime.getAsLong() - startedAtNanos);
+        ExportTelemetry.Snapshot telemetrySnapshot = telemetry.snapshot();
         return new ExportProgress(
                 state,
                 Math.min(completedWorkItems, totalWorkItems),
                 totalWorkItems,
                 sink.queueDepth(),
-                Duration.ofNanos(elapsedNanos),
-                currentObjectId);
+                elapsed(),
+                currentObjectId,
+                telemetrySnapshot.percent(),
+                telemetrySnapshot.stageKey());
+    }
+
+    @Override
+    public Optional<ExportSummary> summary() {
+        return summary;
+    }
+
+    private Duration elapsed() {
+        long elapsedNanos = Math.max(0L, nanoTime.getAsLong() - startedAtNanos);
+        return Duration.ofNanos(elapsedNanos);
     }
 
     public Optional<Path> finalDirectory() {
@@ -162,10 +195,28 @@ public final class ExportJob implements ManagedJob {
             finalDirectory = result.outputDirectory();
             warningCount = result.warningCount();
             outcomeStatus = result.status();
+            summary = Optional.of(new ExportSummary(
+                    result.status(),
+                    result.outputDirectory(),
+                    result.nodeCount(),
+                    result.primitiveCount(),
+                    result.textureCount(),
+                    result.warningCount(),
+                    elapsed(),
+                    Optional.empty()));
             transition(JobState.COMPLETED);
         } else {
             failureReason = Optional.of(result.error());
             outcomeStatus = "failed";
+            summary = Optional.of(new ExportSummary(
+                    "failed",
+                    Optional.empty(),
+                    0,
+                    0,
+                    0,
+                    warningCount,
+                    elapsed(),
+                    Optional.of(result.error())));
             transition(JobState.FAILED);
         }
         return true;
@@ -175,6 +226,15 @@ public final class ExportJob implements ManagedJob {
         sink.cancel();
         failureReason = Optional.of(reason);
         outcomeStatus = "failed";
+        summary = Optional.of(new ExportSummary(
+                "failed",
+                Optional.empty(),
+                0,
+                0,
+                0,
+                warningCount,
+                elapsed(),
+                Optional.of(reason)));
         state = JobState.FAILED;
     }
 
@@ -220,13 +280,19 @@ public final class ExportJob implements ManagedJob {
             Optional<Path> outputDirectory,
             long warningCount,
             String status,
-            String error) {
+            String error,
+            long nodeCount,
+            long primitiveCount,
+            long textureCount) {
         public WriterResult {
             outputDirectory = Objects.requireNonNull(outputDirectory, "outputDirectory");
             Objects.requireNonNull(status, "status");
             Objects.requireNonNull(error, "error");
             if (warningCount < 0) {
                 throw new IllegalArgumentException("Warning count must not be negative");
+            }
+            if (nodeCount < 0 || primitiveCount < 0 || textureCount < 0) {
+                throw new IllegalArgumentException("Writer counts must not be negative");
             }
             if (success && outputDirectory.isEmpty()) {
                 throw new IllegalArgumentException("Successful writer result requires an output directory");
@@ -236,12 +302,22 @@ public final class ExportJob implements ManagedJob {
             }
         }
 
-        public static WriterResult success(Path directory, long warnings, String status) {
-            return new WriterResult(true, Optional.of(directory), warnings, status, "");
+        public static WriterResult success(
+                Path directory, long warnings, String status,
+                long nodeCount, long primitiveCount, long textureCount) {
+            return new WriterResult(
+                    true, Optional.of(directory), warnings, status, "",
+                    nodeCount, primitiveCount, textureCount);
+        }
+
+        public static WriterResult success(
+                Path directory, long warnings, String status) {
+            return success(directory, warnings, status, 0, 0, 0);
         }
 
         public static WriterResult failure(String error) {
-            return new WriterResult(false, Optional.empty(), 0, "failed", error);
+            return new WriterResult(
+                    false, Optional.empty(), 0, "failed", error, 0, 0, 0);
         }
     }
 }

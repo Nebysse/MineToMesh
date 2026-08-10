@@ -111,6 +111,41 @@ class ExportJobTest {
         assertEquals("disk full", failed.failureReason().orElseThrow());
     }
 
+    @Test
+    void completedSummaryCarriesWriterCountsAndDirectory() {
+        FakeSink sink = new FakeSink(new ArrayList<>(), 2);
+        ExportJob job = new ExportJob(
+                new FakeSource(new ArrayList<>(), List.of(), 0),
+                sink, new StepClock(0), Duration.ofMillis(6));
+        job.tick();
+        sink.complete(ExportJob.WriterResult.success(
+                Path.of("flower-export"), 2, "completed_with_warnings", 41, 512, 7));
+        job.tick();
+
+        ExportSummary summary = job.summary().orElseThrow();
+        assertEquals("completed_with_warnings", summary.status());
+        assertEquals(Path.of("flower-export"), summary.outputDirectory().orElseThrow());
+        assertEquals(41, summary.nodeCount());
+        assertEquals(512, summary.primitiveCount());
+        assertEquals(7, summary.textureCount());
+        assertEquals(2, summary.warningCount());
+        assertTrue(summary.failureReason().isEmpty());
+    }
+
+    @Test
+    void cancelledSummaryCarriesReasonWithoutDirectory() {
+        FakeSink sink = new FakeSink(new ArrayList<>(), 2);
+        ExportJob job = new ExportJob(
+                new FakeSource(new ArrayList<>(), List.of("s0"), 4),
+                sink, new StepClock(0), Duration.ofMillis(6));
+        job.cancel("screen_closed");
+
+        ExportSummary summary = job.summary().orElseThrow();
+        assertEquals("cancelled", summary.status());
+        assertTrue(summary.outputDirectory().isEmpty());
+        assertEquals("screen_closed", summary.failureReason().orElseThrow());
+    }
+
     private static ChunkBatch batch(String ignored) {
         return new ChunkBatch(List.of(), List.of(), BatchCounters.ZERO);
     }

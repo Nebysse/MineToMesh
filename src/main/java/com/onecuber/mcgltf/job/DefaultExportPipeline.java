@@ -88,9 +88,18 @@ public final class DefaultExportPipeline {
             Minecraft minecraft,
             Selection selection,
             ExportName name) throws IOException {
+        return create(minecraft, selection, name, new ExportTelemetry());
+    }
+
+    public static ExportJob create(
+            Minecraft minecraft,
+            Selection selection,
+            ExportName name,
+            ExportTelemetry telemetry) throws IOException {
         Objects.requireNonNull(minecraft, "minecraft");
         Objects.requireNonNull(selection, "selection");
         Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(telemetry, "telemetry");
         ClientLevel level = Objects.requireNonNull(minecraft.level, "No active client world");
         ExportPlan plan = new WorldPlanner().plan(level, selection);
         Path exportRoot = minecraft.gameDirectory.toPath().resolve("mcgltf-exports");
@@ -106,8 +115,10 @@ public final class DefaultExportPipeline {
                     name,
                     plan,
                     rootExtras(minecraft, plan),
-                    level.getGameTime());
-            return new ExportJob(source, sink, System::nanoTime, Duration.ofMillis(6));
+                    level.getGameTime(),
+                    telemetry);
+            return new ExportJob(
+                    source, sink, System::nanoTime, Duration.ofMillis(6), telemetry);
         } catch (RuntimeException | Error exception) {
             transaction.close();
             throw exception;
@@ -348,6 +359,7 @@ public final class DefaultExportPipeline {
         private final AtomicReference<ExportJob.WriterResult> result = new AtomicReference<>();
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final ClientLevel level;
+        private final ExportTelemetry telemetry;
         private boolean terminalSent;
 
         private AsyncBatchSink(
@@ -356,8 +368,10 @@ public final class DefaultExportPipeline {
                 ExportName name,
                 ExportPlan plan,
                 Map<String, Object> rootExtras,
-                long startGameTime) {
+                long startGameTime,
+                ExportTelemetry telemetry) {
             this.level = Objects.requireNonNull(Minecraft.getInstance().level, "level");
+            this.telemetry = Objects.requireNonNull(telemetry, "telemetry");
             Thread writer = new Thread(
                     () -> writeLoop(transaction, textures, name, plan,
                             rootExtras, startGameTime),
@@ -412,6 +426,7 @@ public final class DefaultExportPipeline {
             BatchCounters counters = BatchCounters.ZERO;
             Set<MaterialKey> materials = new LinkedHashSet<>();
             long endGameTime = startGameTime;
+            telemetry.writerStage(ExportTelemetry.WriterStage.DRAINING);
             try (transaction;
                  StreamingSceneSession session = new StreamingSceneSession(
                          transaction.temporaryDirectory(), name.value(), rootExtras)) {
@@ -432,7 +447,9 @@ public final class DefaultExportPipeline {
                             .forEach(primitive -> materials.add(primitive.material())));
                 }
 
+                telemetry.writerStage(ExportTelemetry.WriterStage.TEXTURES);
                 textures.writeAll(transaction.temporaryDirectory());
+                telemetry.writerStage(ExportTelemetry.WriterStage.DOCUMENTS);
                 StreamingSceneSession.OutputStatistics output = session.finish();
                 writeMaterialSidecars(transaction.temporaryDirectory(), materials, textures);
                 List<String> validationErrors = validate(output.gltf().gltfPath());
@@ -453,6 +470,7 @@ public final class DefaultExportPipeline {
                 long warnings = warningCount(diagnostics);
                 String status = fatal ? "failed"
                         : warnings == 0 ? "completed" : "completed_with_warnings";
+                telemetry.writerStage(ExportTelemetry.WriterStage.REPORT);
                 ReportWriter.write(transaction.temporaryDirectory(), report(
                         status, plan, startGameTime, endGameTime,
                         finalCounters, diagnostics));
@@ -462,7 +480,14 @@ public final class DefaultExportPipeline {
                     return;
                 }
                 Path published = transaction.publish();
-                result.set(ExportJob.WriterResult.success(published, warnings, status));
+                telemetry.writerStage(ExportTelemetry.WriterStage.COMMITTED);
+                result.set(ExportJob.WriterResult.success(
+                        published,
+                        warnings,
+                        status,
+                        output.gltf().nodeCount(),
+                        output.gltf().primitiveCount(),
+                        textures.size()));
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
                 if (!cancelled.get()) {
