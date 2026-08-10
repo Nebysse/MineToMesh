@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 class PlaceholderFactoryTest {
     @Test
-    void unitAabbProducesMagentaTransparentIndexedBoxWithOutwardNormals() {
+    void unitAabbProducesMagentaTransparentBoxWithOutwardNormals() {
         CapturedNode node = PlaceholderFactory.create(
                 "missing", new Vec3f(0.0F, 0.0F, 0.0F),
                 new Vec3f(1.0F, 1.0F, 1.0F), Map.of("reason", "test"));
@@ -20,7 +20,7 @@ class PlaceholderFactoryTest {
         assertEquals(CapturedNode.Kind.PLACEHOLDER, node.kind());
         assertEquals(1, node.primitives().size());
         var primitive = node.primitives().getFirst();
-        assertEquals(8, primitive.vertices().size());
+        assertEquals(36, primitive.vertices().size());
         assertEquals(36, primitive.indices().length);
         assertEquals(4, primitive.gltfMode());
         assertEquals(MaterialKey.AlphaMode.BLEND, primitive.material().alphaMode());

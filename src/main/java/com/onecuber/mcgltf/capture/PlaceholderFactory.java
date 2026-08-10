@@ -4,6 +4,7 @@ import com.onecuber.mcgltf.scene.CapturedNode;
 import com.onecuber.mcgltf.scene.ColorRgba;
 import com.onecuber.mcgltf.scene.MaterialKey;
 import com.onecuber.mcgltf.scene.PrimitiveData;
+import com.onecuber.mcgltf.scene.PrimitiveMode;
 import com.onecuber.mcgltf.scene.TextureKey;
 import com.onecuber.mcgltf.scene.Vec2f;
 import com.onecuber.mcgltf.scene.Vec3f;
@@ -75,7 +76,14 @@ public final class PlaceholderFactory {
                     position.z() - centerZ).normalizedOrUp();
             vertices.add(new Vertex(position, normal, UV, MAGENTA_HALF_ALPHA));
         }
-        PrimitiveData primitive = new PrimitiveData(vertices, INDICES, 4, MATERIAL);
+        List<Vertex> triangleVertices = java.util.Arrays.stream(INDICES)
+                .mapToObj(vertices::get)
+                .toList();
+        PrimitiveData primitive = new PrimitiveData(
+                triangleVertices,
+                PrimitiveMode.TRIANGLES,
+                new int[] {triangleVertices.size()},
+                MATERIAL);
         return new CapturedNode(name, CapturedNode.Kind.PLACEHOLDER, List.of(primitive), extras);
     }
 

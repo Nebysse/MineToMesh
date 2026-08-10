@@ -38,23 +38,22 @@ public final class PrimitiveAccumulator {
         List<Diagnostic> diagnostics = new ArrayList<>();
         for (Map.Entry<GroupKey, List<List<Vertex>>> entry : streams.entrySet()) {
             List<Vertex> mergedVertices = new ArrayList<>();
-            List<Integer> mergedIndices = new ArrayList<>();
-            int gltfMode = -1;
+            List<Integer> streamCounts = new ArrayList<>();
+            boolean hasIndices = false;
             for (List<Vertex> stream : entry.getValue()) {
-                int vertexOffset = mergedVertices.size();
                 TopologyConverter.ConvertedTopology converted = TopologyConverter.convert(
                         entry.getKey().mode(), stream.size(), objectId);
-                gltfMode = converted.gltfMode();
                 mergedVertices.addAll(stream);
-                for (int index : converted.indices()) {
-                    mergedIndices.add(Math.addExact(vertexOffset, index));
-                }
+                streamCounts.add(stream.size());
+                hasIndices |= converted.indices().length > 0;
                 diagnostics.addAll(converted.diagnostics());
             }
-            if (!mergedIndices.isEmpty()) {
-                int[] indices = mergedIndices.stream().mapToInt(Integer::intValue).toArray();
+            if (hasIndices) {
                 primitives.add(new PrimitiveData(
-                        mergedVertices, indices, gltfMode, entry.getKey().material()));
+                        mergedVertices,
+                        entry.getKey().mode(),
+                        streamCounts.stream().mapToInt(Integer::intValue).toArray(),
+                        entry.getKey().material()));
             }
         }
         streams.clear();

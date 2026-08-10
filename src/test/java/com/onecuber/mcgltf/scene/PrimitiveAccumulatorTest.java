@@ -40,22 +40,25 @@ class PrimitiveAccumulatorTest {
     }
 
     @Test
-    void primitiveDataDefensivelyCopiesIndicesAndValidatesBounds() {
-        int[] indices = {0, 1, 2};
-        PrimitiveData primitive = new PrimitiveData(vertices(3), indices, 4, material("stone"));
-        indices[0] = 99;
+    void primitiveDataDefensivelyCopiesStreamCountsAndValidatesCoverage() {
+        int[] streamCounts = {3};
+        PrimitiveData primitive = new PrimitiveData(
+                vertices(3), PrimitiveMode.TRIANGLES, streamCounts, material("stone"));
+        streamCounts[0] = 99;
 
-        assertArrayEquals(new int[] {0, 1, 2}, primitive.indices());
-        int[] returned = primitive.indices();
-        returned[1] = 99;
-        assertArrayEquals(new int[] {0, 1, 2}, primitive.indices());
+        assertArrayEquals(new int[] {3}, primitive.streamVertexCounts());
+        int[] returned = primitive.streamVertexCounts();
+        returned[0] = 99;
+        assertArrayEquals(new int[] {3}, primitive.streamVertexCounts());
         assertThrows(IllegalArgumentException.class,
-                () -> new PrimitiveData(vertices(3), new int[] {0, 3}, 1, material("stone")));
+                () -> new PrimitiveData(
+                        vertices(3), PrimitiveMode.LINES, new int[] {2}, material("stone")));
     }
 
     @Test
     void sceneBatchesAreImmutableAndCountersAddExactly() {
-        PrimitiveData primitive = new PrimitiveData(vertices(3), new int[] {0, 1, 2}, 4, material("stone"));
+        PrimitiveData primitive = new PrimitiveData(
+                vertices(3), PrimitiveMode.TRIANGLES, new int[] {3}, material("stone"));
         CapturedNode node = new CapturedNode("node", CapturedNode.Kind.CHUNK, List.of(primitive), Map.of("x", 1));
         ChunkBatch batch = new ChunkBatch(List.of(node), List.of(), BatchCounters.ZERO);
 

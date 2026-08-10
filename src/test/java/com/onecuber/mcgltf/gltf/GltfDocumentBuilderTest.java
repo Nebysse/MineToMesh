@@ -10,6 +10,7 @@ import com.onecuber.mcgltf.scene.CapturedNode;
 import com.onecuber.mcgltf.scene.ColorRgba;
 import com.onecuber.mcgltf.scene.MaterialKey;
 import com.onecuber.mcgltf.scene.PrimitiveData;
+import com.onecuber.mcgltf.scene.PrimitiveMode;
 import com.onecuber.mcgltf.scene.TextureKey;
 import com.onecuber.mcgltf.scene.Vec2f;
 import com.onecuber.mcgltf.scene.Vec3f;
@@ -45,7 +46,7 @@ class GltfDocumentBuilderTest {
         JsonObject document = builder.finish(binary.size());
 
         assertEquals("2.0", document.getAsJsonObject("asset").get("version").getAsString());
-        assertEquals("MC glTF Exporter 0.1.0",
+        assertEquals("MC glTF Exporter 0.2.0",
                 document.getAsJsonObject("asset").get("generator").getAsString());
         assertEquals(0, document.get("scene").getAsInt());
         assertEquals(1, document.getAsJsonArray("scenes").size());
@@ -83,7 +84,8 @@ class GltfDocumentBuilderTest {
                 MaterialKey.SamplerMode.NEAREST);
         List<Vertex> vertices = List.of(
                 vertex(0, 0, 0), vertex(1, 0, 0), vertex(0, 1, 0));
-        return new PrimitiveData(vertices, new int[] {0, 2, 1}, 4, material);
+        return new PrimitiveData(
+                vertices, PrimitiveMode.TRIANGLES, new int[] {vertices.size()}, material);
     }
 
     private static Vertex vertex(float x, float y, float z) {
