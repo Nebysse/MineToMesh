@@ -148,7 +148,7 @@ public final class ResourceTextureExtractor {
                 Optional.empty(), Optional.empty(), Optional.empty());
     }
 
-    private static byte[] copyRgba(NativeImage image) {
+    static byte[] copyRgba(NativeImage image) {
         byte[] rgba = new byte[Math.multiplyExact(Math.multiplyExact(
                 image.getWidth(), image.getHeight()), 4)];
         int cursor = 0;
@@ -187,7 +187,7 @@ public final class ResourceTextureExtractor {
                 "textures/" + textureId.getNamespace() + "/" + path + ".png");
     }
 
-    private static String sha256(byte[] bytes) {
+    static String sha256(byte[] bytes) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (NoSuchAlgorithmException exception) {
