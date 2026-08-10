@@ -9,7 +9,7 @@ import net.neoforged.fml.common.Mod;
 public final class McGltf {
     public static final String MOD_ID = "mcgltf";
     public static final String DISPLAY_NAME = "MineToMesh";
-    public static final String VERSION = "0.3.0";
+    public static final String VERSION = "0.3.1";
 
     public McGltf(IEventBus modBus) {
         McGltfContent.register(modBus);

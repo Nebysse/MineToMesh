@@ -14,7 +14,7 @@ class DocumentationPolicyTest {
         String readme = Files.readString(
                 projectRoot().resolve("README.md"), StandardCharsets.UTF_8);
         List<String> required = List.of(
-                "mcgltf-0.3.0.jar",
+                "mcgltf-0.3.1.jar",
                 "客户端和服务端",
                 "区域导出工作台",
                 "关闭 GUI 会取消",

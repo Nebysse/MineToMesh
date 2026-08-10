@@ -1,5 +1,6 @@
 package com.onecuber.mcgltf.client.workstation;
 
+import com.onecuber.mcgltf.McGltf;
 import com.onecuber.mcgltf.job.ExportSummary;
 import com.onecuber.mcgltf.job.ExportTelemetry;
 import com.onecuber.mcgltf.network.CaptureFeetPayload;
@@ -558,7 +559,7 @@ public class ExportWorkstationScreen extends AbstractContainerScreen<ExportWorks
     private void drawHeader(GuiGraphics graphics) {
         graphics.drawString(font, Component.literal("区域导出工作台"),
                 screenX(Layout.HEADER.x() + 22), screenY(Layout.HEADER.y() + 6), LIGHT, false);
-        graphics.drawString(font, Component.literal("MineToMesh 0.3.0"),
+        graphics.drawString(font, Component.literal(McGltf.DISPLAY_NAME + " " + McGltf.VERSION),
                 screenX(Layout.HEADER.right() - 112), screenY(Layout.HEADER.y() + 6), MID, false);
     }
 
