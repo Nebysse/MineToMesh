@@ -1,7 +1,6 @@
 package com.onecuber.mcgltf.texture;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.onecuber.mcgltf.scene.Diagnostic;
 import com.onecuber.mcgltf.scene.TextureKey;
 import java.io.IOException;
@@ -20,6 +19,55 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 
 public final class ResourceTextureExtractor {
+    public static TextureProvider resourceProvider() {
+        ResourceTextureExtractor extractor = new ResourceTextureExtractor();
+        return new TextureProvider() {
+            @Override
+            public String id() {
+                return "resource";
+            }
+
+            @Override
+            public Optional<Result> acquire(Request request) throws Exception {
+                ResourceManager manager = request.resourceManager();
+                if (manager == null
+                        || manager.getResource(pngResource(request.textureId())).isEmpty()) {
+                    return Optional.empty();
+                }
+                Extraction extraction = extractor.extractResource(
+                        request.textureId(), manager);
+                return Optional.of(new Result(
+                        id(), extraction.key(), extraction.image(), extraction.diagnostics()));
+            }
+        };
+    }
+
+    public static TextureProvider dynamicProvider() {
+        ResourceTextureExtractor extractor = new ResourceTextureExtractor();
+        return new TextureProvider() {
+            @Override
+            public String id() {
+                return "dynamic";
+            }
+
+            @Override
+            public Optional<Result> acquire(Request request) {
+                TextureManager manager = request.textureManager();
+                if (manager == null) {
+                    return Optional.empty();
+                }
+                AbstractTexture texture = manager.getTexture(request.textureId());
+                if (!(texture instanceof DynamicTexture dynamicTexture)) {
+                    return Optional.empty();
+                }
+                Extraction extraction = extractor.extractDynamic(
+                        request.textureId(), dynamicTexture);
+                return Optional.of(new Result(
+                        id(), extraction.key(), extraction.image(), extraction.diagnostics()));
+            }
+        };
+    }
+
     public Extraction extract(
             ResourceLocation textureId,
             ResourceManager resourceManager,
@@ -51,7 +99,6 @@ public final class ResourceTextureExtractor {
     }
 
     public Extraction extractDynamic(ResourceLocation textureId, DynamicTexture texture) {
-        RenderSystem.assertOnRenderThreadOrInit();
         NativeImage pixels = texture.getPixels();
         if (pixels == null) {
             return failed(textureId, "Dynamic texture has no CPU pixel image");
