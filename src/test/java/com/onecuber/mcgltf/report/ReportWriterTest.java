@@ -43,7 +43,7 @@ class ReportWriterTest {
         Path output = ReportWriter.write(tempDir, report);
         JsonObject json = JsonParser.parseString(Files.readString(output)).getAsJsonObject();
 
-        assertEquals(1, json.get("schemaVersion").getAsInt());
+        assertEquals(2, json.get("schemaVersion").getAsInt());
         assertEquals("completed_with_warnings", json.get("status").getAsString());
         assertEquals(4096L, json.get("volume").getAsLong());
         assertEquals(10L, json.getAsJsonObject("counters").get("renderedBlocks").getAsLong());

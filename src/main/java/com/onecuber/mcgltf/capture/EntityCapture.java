@@ -1,6 +1,7 @@
 package com.onecuber.mcgltf.capture;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.onecuber.mcgltf.backend.RenderBackendRegistry;
 import com.onecuber.mcgltf.material.MaterialResolver;
 import com.onecuber.mcgltf.scene.BatchCounters;
 import com.onecuber.mcgltf.scene.CapturedNode;
@@ -35,13 +36,22 @@ public final class EntityCapture {
     private static final double PLACEHOLDER_INFLATION = 0.01D;
 
     private final Function<RenderTypeDescriptor, MaterialKey> materialResolver;
+    private final RendererReplay rendererReplay;
 
     public EntityCapture() {
         this(MaterialResolver::resolve);
     }
 
     public EntityCapture(Function<RenderTypeDescriptor, MaterialKey> materialResolver) {
+        this(materialResolver, new RendererReplay(RenderBackendRegistry.discover(
+                EntityCapture.class.getClassLoader())));
+    }
+
+    public EntityCapture(
+            Function<RenderTypeDescriptor, MaterialKey> materialResolver,
+            RendererReplay rendererReplay) {
         this.materialResolver = Objects.requireNonNull(materialResolver, "materialResolver");
+        this.rendererReplay = Objects.requireNonNull(rendererReplay, "rendererReplay");
     }
 
     public List<Entity> collect(ClientLevel level, Selection selection) {
@@ -88,9 +98,30 @@ public final class EntityCapture {
                 objectId, materialResolver);
         try {
             PoseStack poseStack = entityPose(entity, selection, renderer);
-            renderer.render(entity, entity.getYRot(), 0.0F,
-                    poseStack, buffers, LightTexture.FULL_BRIGHT);
+            RendererReplay.Outcome replay = rendererReplay.run(() -> renderer.render(
+                    entity, entity.getYRot(), 0.0F,
+                    poseStack, buffers, LightTexture.FULL_BRIGHT));
+            if (!replay.success()) {
+                Exception exception = replay.failure().orElseThrow();
+                String code = replay.failureStage() == RendererReplay.FailureStage.BACKEND
+                        || replay.failureStage() == RendererReplay.FailureStage.RESTORE
+                        ? "RENDER_BACKEND_FALLBACK_FAILED" : "ENTITY_CAPTURE_FAILED";
+                return fallback(entity, selection, objectId, registryId, uuid,
+                        renderer.getClass().getName(), code,
+                        exception.getMessage() == null ? code : exception.getMessage(),
+                        exception);
+            }
             CapturingMultiBufferSource.CaptureResult capture = buffers.finishAll();
+            List<Diagnostic> captureDiagnostics = new ArrayList<>(capture.diagnostics());
+            if (replay.fallbackUsed()) {
+                captureDiagnostics.add(diagnostic(
+                        Diagnostic.Severity.INFO,
+                        "RENDER_BACKEND_FALLBACK_USED",
+                        objectId,
+                        renderer.getClass().getName(),
+                        "",
+                        replay.adapterId()));
+            }
             Map<String, Object> extras = extras(
                     entity, selection, registryId, uuid, renderer.getClass().getName());
             if (hasGeometry(capture.primitives())) {
@@ -102,18 +133,18 @@ public final class EntityCapture {
                 long triangles = triangleCount(capture.primitives());
                 return new ObjectResult(
                         Optional.of(node),
-                        capture.diagnostics(),
+                        captureDiagnostics,
                         new BatchCounters(0, 0, 0, 0, 1, 0, 0, triangles, 0));
             }
             if (isVisibleNonMarker(entity)) {
                 ObjectResult fallback = fallback(entity, selection, objectId, registryId, uuid,
                         renderer.getClass().getName(), "ENTITY_ZERO_VERTICES",
                         "Entity renderer emitted no exportable vertices", null);
-                List<Diagnostic> merged = new ArrayList<>(capture.diagnostics());
+                List<Diagnostic> merged = new ArrayList<>(captureDiagnostics);
                 merged.addAll(fallback.diagnostics());
                 return new ObjectResult(fallback.node(), merged, fallback.counters());
             }
-            List<Diagnostic> skipped = new ArrayList<>(capture.diagnostics());
+            List<Diagnostic> skipped = new ArrayList<>(captureDiagnostics);
             skipped.add(diagnostic(Diagnostic.Severity.WARNING, "ENTITY_ZERO_VERTICES_SKIPPED",
                     objectId, renderer.getClass().getName(), "",
                     "Invisible or marker entity emitted no exportable vertices"));

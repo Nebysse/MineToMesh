@@ -1,6 +1,7 @@
 package com.onecuber.mcgltf.capture;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.onecuber.mcgltf.backend.RenderBackendRegistry;
 import com.onecuber.mcgltf.material.MaterialResolver;
 import com.onecuber.mcgltf.scene.BatchCounters;
 import com.onecuber.mcgltf.scene.CapturedNode;
@@ -27,13 +28,22 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 public final class BlockEntityCapture {
     private final Function<RenderTypeDescriptor, MaterialKey> materialResolver;
+    private final RendererReplay rendererReplay;
 
     public BlockEntityCapture() {
         this(MaterialResolver::resolve);
     }
 
     public BlockEntityCapture(Function<RenderTypeDescriptor, MaterialKey> materialResolver) {
+        this(materialResolver, new RendererReplay(RenderBackendRegistry.discover(
+                BlockEntityCapture.class.getClassLoader())));
+    }
+
+    public BlockEntityCapture(
+            Function<RenderTypeDescriptor, MaterialKey> materialResolver,
+            RendererReplay rendererReplay) {
         this.materialResolver = Objects.requireNonNull(materialResolver, "materialResolver");
+        this.rendererReplay = Objects.requireNonNull(rendererReplay, "rendererReplay");
     }
 
     public CaptureResult capture(BlockEntity blockEntity, Selection selection) {
@@ -66,9 +76,41 @@ public final class BlockEntityCapture {
                 objectId, materialResolver);
         try {
             PoseStack poseStack = blockEntityPose(position, selection);
-            renderer.render(blockEntity, 0.0F, poseStack, buffers,
-                    LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+            RendererReplay.Outcome replay = rendererReplay.run(() -> renderer.render(
+                    blockEntity, 0.0F, poseStack, buffers,
+                    LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY));
+            if (!replay.success()) {
+                Exception exception = replay.failure().orElseThrow();
+                String code = replay.failureStage() == RendererReplay.FailureStage.BACKEND
+                        || replay.failureStage() == RendererReplay.FailureStage.RESTORE
+                        ? "RENDER_BACKEND_FALLBACK_FAILED"
+                        : "BLOCK_ENTITY_CAPTURE_FAILED";
+                Diagnostic diagnostic = diagnostic(
+                        Diagnostic.Severity.FAILURE,
+                        code,
+                        objectId,
+                        position,
+                        selection,
+                        renderer.getClass().getName(),
+                        exception.getClass().getName(),
+                        exception.getMessage() == null ? code : exception.getMessage());
+                return new CaptureResult(
+                        Optional.empty(), CaptureState.FAILED,
+                        List.of(diagnostic), blockEntityCounter());
+            }
             CapturingMultiBufferSource.CaptureResult captured = buffers.finishAll();
+            List<Diagnostic> captureDiagnostics = new ArrayList<>(captured.diagnostics());
+            if (replay.fallbackUsed()) {
+                captureDiagnostics.add(diagnostic(
+                        Diagnostic.Severity.INFO,
+                        "RENDER_BACKEND_FALLBACK_USED",
+                        objectId,
+                        position,
+                        selection,
+                        renderer.getClass().getName(),
+                        "",
+                        replay.adapterId()));
+            }
             Map<String, Object> extras = extras(
                     registryId, position, selection, renderer.getClass().getName());
             if (hasGeometry(captured.primitives())) {
@@ -80,11 +122,11 @@ public final class BlockEntityCapture {
                 return new CaptureResult(
                         Optional.of(node),
                         CaptureState.GEOMETRY,
-                        captured.diagnostics(),
+                        captureDiagnostics,
                         new BatchCounters(0, 0, 0, 1, 0, 0, 0,
                                 triangleCount(captured.primitives()), 0));
             }
-            List<Diagnostic> diagnostics = new ArrayList<>(captured.diagnostics());
+            List<Diagnostic> diagnostics = new ArrayList<>(captureDiagnostics);
             diagnostics.add(diagnostic(
                     Diagnostic.Severity.INFO,
                     "AUXILIARY_RENDERER_EMPTY",

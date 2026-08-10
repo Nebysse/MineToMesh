@@ -5,16 +5,18 @@ import com.google.gson.JsonParser;
 import com.onecuber.mcgltf.McGltf;
 import com.onecuber.mcgltf.capture.BlockEntityCapture;
 import com.onecuber.mcgltf.capture.BlockModelExtractor;
+import com.onecuber.mcgltf.capture.CaptureState;
 import com.onecuber.mcgltf.capture.EntityCapture;
 import com.onecuber.mcgltf.capture.FluidGeometryCapture;
+import com.onecuber.mcgltf.capture.ObjectCaptureDecision;
 import com.onecuber.mcgltf.capture.PlaceholderFactory;
 import com.onecuber.mcgltf.capture.RenderTypeDescriptor;
 import com.onecuber.mcgltf.gltf.InternalGltfValidator;
-import com.onecuber.mcgltf.gltf.StreamingGltfSession;
 import com.onecuber.mcgltf.material.MaterialResolver;
 import com.onecuber.mcgltf.material.MaterialSidecarWriter;
 import com.onecuber.mcgltf.output.ExportName;
 import com.onecuber.mcgltf.output.OutputTransaction;
+import com.onecuber.mcgltf.output.StreamingSceneSession;
 import com.onecuber.mcgltf.report.ExportReport;
 import com.onecuber.mcgltf.report.ReportWriter;
 import com.onecuber.mcgltf.scene.BatchCounters;
@@ -25,9 +27,13 @@ import com.onecuber.mcgltf.scene.MaterialKey;
 import com.onecuber.mcgltf.scene.PrimitiveAccumulator;
 import com.onecuber.mcgltf.scene.PrimitiveMode;
 import com.onecuber.mcgltf.scene.Vec3f;
+import com.onecuber.mcgltf.texture.GlGpuTextureAccess;
+import com.onecuber.mcgltf.texture.GpuTextureProvider;
 import com.onecuber.mcgltf.texture.ResourceTextureExtractor;
 import com.onecuber.mcgltf.texture.SpriteTextureExtractor;
+import com.onecuber.mcgltf.texture.TextureAcquisitionChain;
 import com.onecuber.mcgltf.texture.TextureImage;
+import com.onecuber.mcgltf.texture.TextureProvider;
 import com.onecuber.mcgltf.texture.TextureRegistry;
 import com.onecuber.mcgltf.world.ExportPlan;
 import com.onecuber.mcgltf.world.Selection;
@@ -60,6 +66,22 @@ public final class DefaultExportPipeline {
     private static final int WRITER_QUEUE_CAPACITY = 2;
 
     private DefaultExportPipeline() {
+    }
+
+    static boolean shouldCreateBlockPlaceholder(
+            CaptureState staticState,
+            CaptureState auxiliaryState) {
+        Objects.requireNonNull(staticState, "staticState");
+        return ObjectCaptureDecision.decide(
+                staticState == CaptureState.GEOMETRY,
+                auxiliaryState).placeholder();
+    }
+
+    static long warningCount(List<Diagnostic> diagnostics) {
+        return diagnostics.stream()
+                .filter(value -> value.severity() == Diagnostic.Severity.WARNING
+                        || value.severity() == Diagnostic.Severity.FAILURE)
+                .count();
     }
 
     public static ExportJob create(
@@ -112,6 +134,8 @@ public final class DefaultExportPipeline {
                 .sorted()
                 .toList());
         extras.put("snapshotMode", "rolling_client_snapshot");
+        extras.put("formats", List.of("gltf", "obj"));
+        extras.put("sourceTopologyPreservedInObj", true);
         return extras;
     }
 
@@ -207,11 +231,6 @@ public final class DefaultExportPipeline {
                         level, position, plan.selection(), accumulator);
                 counters = counters.plus(block.counters());
                 diagnostics.addAll(block.diagnostics());
-                if (block.diagnostics().stream()
-                        .anyMatch(value -> value.severity() == Diagnostic.Severity.FAILURE)) {
-                    nodes.add(blockPlaceholder(position));
-                    counters = counters.plus(new BatchCounters(0, 0, 0, 0, 0, 0, 0, 12, 1));
-                }
 
                 FluidGeometryCapture.CaptureResult fluid = fluids.capture(
                         level, position, plan.selection(), accumulator);
@@ -225,6 +244,24 @@ public final class DefaultExportPipeline {
                     rendered.node().ifPresent(nodes::add);
                     counters = counters.plus(rendered.counters());
                     diagnostics.addAll(rendered.diagnostics());
+                    ObjectCaptureDecision decision = ObjectCaptureDecision.decide(
+                            block.hasGeometry(), rendered.state());
+                    if (decision.placeholder()) {
+                        nodes.add(blockPlaceholder(position));
+                        counters = counters.plus(placeholderCounter());
+                    } else if (decision.partial()) {
+                        diagnostics.add(new Diagnostic(
+                                Diagnostic.Severity.WARNING,
+                                "PARTIAL_OBJECT_CAPTURE",
+                                "block/" + position.toShortString(),
+                                Optional.empty(),
+                                "",
+                                "",
+                                "Static block geometry was kept after auxiliary capture failed"));
+                    }
+                } else if (block.state() == CaptureState.FAILED) {
+                    nodes.add(blockPlaceholder(position));
+                    counters = counters.plus(placeholderCounter());
                 }
             }
 
@@ -256,6 +293,10 @@ public final class DefaultExportPipeline {
                 return new BlockPos(work.minX() + x, work.minY() + y, work.minZ() + z);
             }
 
+            private static BatchCounters placeholderCounter() {
+                return new BatchCounters(0, 0, 0, 0, 0, 0, 0, 12, 1);
+            }
+
             private CapturedNode blockPlaceholder(BlockPos position) {
                 float x = position.getX() - plan.selection().min().x();
                 float y = position.getY() - plan.selection().min().y();
@@ -276,23 +317,23 @@ public final class DefaultExportPipeline {
             Minecraft minecraft,
             TextureRegistry textures,
             List<Diagnostic> diagnostics) {
-        ResourceTextureExtractor extractor = new ResourceTextureExtractor();
-        Map<String, ResourceTextureExtractor.Extraction> cache = new LinkedHashMap<>();
+        TextureAcquisitionChain chain = new TextureAcquisitionChain(
+                List.of(
+                        ResourceTextureExtractor.resourceProvider(),
+                        ResourceTextureExtractor.dynamicProvider(),
+                        new GpuTextureProvider(new GlGpuTextureAccess())),
+                TextureAcquisitionChain::missing);
+        Map<String, TextureProvider.Result> cache = new LinkedHashMap<>();
         return descriptor -> {
             String resourceId = descriptor.textureResourceId()
                     .orElse("mcgltf:missing_texture");
-            ResourceTextureExtractor.Extraction extraction = cache.get(resourceId);
+            TextureProvider.Result extraction = cache.get(resourceId);
             if (extraction == null) {
                 ResourceLocation id = ResourceLocation.parse(resourceId);
-                try {
-                    extraction = extractor.extract(
-                            id, minecraft.getResourceManager(), minecraft.getTextureManager());
-                } catch (Exception exception) {
-                    extraction = ResourceTextureExtractor.failed(
-                            id,
-                            exception.getMessage() == null
-                                    ? exception.getClass().getSimpleName() : exception.getMessage());
-                }
+                extraction = chain.acquire(new TextureProvider.Request(
+                        id,
+                        minecraft.getResourceManager(),
+                        minecraft.getTextureManager()));
                 cache.put(resourceId, extraction);
                 textures.register(extraction.key(), extraction.image());
                 diagnostics.addAll(extraction.diagnostics());
@@ -372,7 +413,7 @@ public final class DefaultExportPipeline {
             Set<MaterialKey> materials = new LinkedHashSet<>();
             long endGameTime = startGameTime;
             try (transaction;
-                 StreamingGltfSession session = new StreamingGltfSession(
+                 StreamingSceneSession session = new StreamingSceneSession(
                          transaction.temporaryDirectory(), name.value(), rootExtras)) {
                 while (true) {
                     Envelope envelope = queue.take();
@@ -392,9 +433,9 @@ public final class DefaultExportPipeline {
                 }
 
                 textures.writeAll(transaction.temporaryDirectory());
-                StreamingGltfSession.OutputStatistics output = session.finish();
+                StreamingSceneSession.OutputStatistics output = session.finish();
                 writeMaterialSidecars(transaction.temporaryDirectory(), materials, textures);
-                List<String> validationErrors = validate(output.gltfPath());
+                List<String> validationErrors = validate(output.gltf().gltfPath());
                 for (String error : validationErrors) {
                     diagnostics.add(new Diagnostic(
                             Diagnostic.Severity.FATAL,
@@ -409,9 +450,7 @@ public final class DefaultExportPipeline {
                         counters, materials.size(), textures.size());
                 boolean fatal = diagnostics.stream()
                         .anyMatch(value -> value.severity() == Diagnostic.Severity.FATAL);
-                long warnings = diagnostics.stream()
-                        .filter(value -> value.severity() != Diagnostic.Severity.FATAL)
-                        .count();
+                long warnings = warningCount(diagnostics);
                 String status = fatal ? "failed"
                         : warnings == 0 ? "completed" : "completed_with_warnings";
                 ReportWriter.write(transaction.temporaryDirectory(), report(

@@ -39,7 +39,7 @@ public record ExportReport(
     }
 
     public int schemaVersion() {
-        return 1;
+        return 2;
     }
 
     @Override
