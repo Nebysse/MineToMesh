@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.onecuber.mcgltf.scene.CapturedNode;
 import com.onecuber.mcgltf.scene.ChunkBatch;
 import com.onecuber.mcgltf.scene.PrimitiveData;
+import com.onecuber.mcgltf.scene.TopologyConverter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -51,7 +52,7 @@ public final class StreamingGltfSession implements Closeable {
         for (CapturedNode node : batch.nodes()) {
             List<WrittenPrimitive> written = new ArrayList<>(node.primitives().size());
             for (PrimitiveData primitive : node.primitives()) {
-                written.add(write(primitive));
+                written.add(write(primitive, node.name()));
                 primitiveCount = Math.addExact(primitiveCount, 1L);
             }
             if (!written.isEmpty()) {
@@ -73,14 +74,16 @@ public final class StreamingGltfSession implements Closeable {
         return new OutputStatistics(nodeCount, primitiveCount, binaryByteLength, gltfPath);
     }
 
-    private WrittenPrimitive write(PrimitiveData primitive) throws IOException {
+    private WrittenPrimitive write(PrimitiveData primitive, String objectId) throws IOException {
+        TopologyConverter.ConvertedTopology topology =
+                TopologyConverter.convert(primitive, objectId);
         return new WrittenPrimitive(
                 binaryWriter.writePositions(primitive.vertices()),
                 binaryWriter.writeNormals(primitive.vertices()),
                 binaryWriter.writeTexCoords(primitive.vertices()),
                 binaryWriter.writeColors(primitive.vertices()),
-                binaryWriter.writeIndices(primitive.indices()),
-                primitive.gltfMode(),
+                binaryWriter.writeIndices(topology.indices()),
+                topology.gltfMode(),
                 primitive.material());
     }
 
