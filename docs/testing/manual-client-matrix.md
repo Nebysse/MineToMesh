@@ -45,4 +45,11 @@
 7. 对 glTF 运行 Khronos Validator，要求 `numErrors: 0`。
 8. 导出结束后继续游玩至少一分钟，要求 Flywheel 视觉保持激活、无对象消失或闪烁。
 
-验收记录：待开发客户端与真实实例验证后填写导出目录、报告摘要、Khronos 结果及 Blender 对比结果。
+## 0.2.0 候选包验收记录（2026-08-10）
+
+- 自动化：在 NeoForge `21.1.244` 基线上执行 `clean test build`，43 个测试套件、124 个测试全部通过，0 failure、0 error、0 skipped。
+- 元数据：生成的 `neoforge.mods.toml` 含 `versionRange="[21.1.244,)"`。
+- 产物隔离：`mcgltf-0.2.0.jar` 包含 `backend/` 与 `obj/`，不含 `mcgltf_test`、`TestBackendAdapter` 或 `GpuResidentTexture`；`jdeps` 未发现 Create 字节码依赖。
+- 开发客户端启动：通过。日志确认 MC glTF Exporter `0.2.0`、兼容夹具 `0.1.0`、NeoForge `21.1.244` 均已加载，资源重载包含 `mod/mcgltf` 与 `mod/mcgltf_test`。
+- 开发客户端夹具导出：由用户执行目标方块验证，本记录暂不宣称通过。
+- 真实 Create/Touhou 实例、Khronos Validator 与 Blender 5.2 双格式对比：由用户执行，本记录暂不宣称通过。
