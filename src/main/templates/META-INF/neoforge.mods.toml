@@ -8,7 +8,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="OneCuber"
 description='''
-Client-side loaded-world exporter for Blender-ready glTF 2.0 scenes.
+Client and server export workstation with client-side Blender-ready glTF and OBJ capture.
 '''
 
 [[dependencies.${mod_id}]]
@@ -16,11 +16,11 @@ modId="neoforge"
 type="required"
 versionRange="[${neo_version},)"
 ordering="NONE"
-side="CLIENT"
+side="BOTH"
 
 [[dependencies.${mod_id}]]
 modId="minecraft"
 type="required"
 versionRange="${minecraft_version_range}"
 ordering="NONE"
-side="CLIENT"
+side="BOTH"
