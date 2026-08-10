@@ -3,7 +3,8 @@ package com.onecuber.mcgltf.texture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.mojang.blaze3d.platform.NativeImage;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
@@ -19,8 +20,7 @@ class TextureProviderFactoryTest {
 
     @Test
     void disposedDynamicTextureFallsThroughToGpuProvider() throws Exception {
-        DynamicTexture disposed = new DynamicTexture(new NativeImage(1, 1, false));
-        disposed.close();
+        DynamicTexture disposed = allocateWithoutConstructor(DynamicTexture.class);
         TextureProvider.Request request = new TextureProvider.Request(
                 ResourceLocation.parse("test:runtime/disposed"),
                 null,
@@ -28,6 +28,15 @@ class TextureProviderFactoryTest {
 
         assertTrue(ResourceTextureExtractor.dynamicProvider()
                 .acquire(request).isEmpty());
+    }
+
+    private static <T> T allocateWithoutConstructor(Class<T> type) throws Exception {
+        Class<?> unsafeType = Class.forName("sun.misc.Unsafe");
+        Field field = unsafeType.getDeclaredField("theUnsafe");
+        field.setAccessible(true);
+        Object unsafe = field.get(null);
+        Method allocateInstance = unsafeType.getMethod("allocateInstance", Class.class);
+        return type.cast(allocateInstance.invoke(unsafe, type));
     }
 
     private static final class FakeTextureManager extends TextureManager {
