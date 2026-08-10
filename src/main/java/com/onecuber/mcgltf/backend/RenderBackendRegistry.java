@@ -35,6 +35,8 @@ public final class RenderBackendRegistry {
     public static RenderBackendRegistry discover(ClassLoader classLoader) {
         Objects.requireNonNull(classLoader, "classLoader");
         Map<String, RenderBackendAdapter> discovered = new LinkedHashMap<>();
+        FlywheelBackendAdapter.discover(classLoader)
+                .ifPresent(adapter -> discovered.put(adapter.id(), adapter));
         for (RenderBackendAdapter adapter : ServiceLoader.load(
                 RenderBackendAdapter.class, classLoader)) {
             discovered.putIfAbsent(adapter.id(), adapter);
