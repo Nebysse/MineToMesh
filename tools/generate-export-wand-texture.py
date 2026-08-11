@@ -3,7 +3,7 @@ from pathlib import Path
 from PIL import Image, ImageColor, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "src/main/resources/assets/mcgltf/textures/item/export_wand.png"
+OUTPUT = ROOT / "src/main/resources/assets/minetomesh/textures/item/export_wand.png"
 
 # Inclusive pixel rectangles. The silhouette reads bottom-left to top-right as a
 # calibrated survey rod; orange and blue encode POS1 and POS2.

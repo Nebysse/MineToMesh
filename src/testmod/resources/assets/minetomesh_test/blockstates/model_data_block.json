@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "minetomesh_test:block/model_data_block" }
+  }
+}

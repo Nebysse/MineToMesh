@@ -3,27 +3,27 @@ loaderVersion="[4,)"
 license="MIT"
 
 [[mods]]
-modId="mcgltf_test"
+modId="minetomesh_test"
 version="0.1.0"
-displayName="MC glTF Compatibility Fixtures"
+displayName="MineToMesh Compatibility Fixtures"
 authors="OneCuber"
-description='''Development-only deterministic rendering fixtures for MC glTF Exporter.'''
+description='''Development-only deterministic rendering fixtures for MineToMesh.'''
 
-[[dependencies.mcgltf_test]]
-modId="mcgltf"
+[[dependencies.minetomesh_test]]
+modId="minetomesh"
 type="required"
-versionRange="[0.1.0,)"
+versionRange="[0.5.1,)"
 ordering="AFTER"
 side="CLIENT"
 
-[[dependencies.mcgltf_test]]
+[[dependencies.minetomesh_test]]
 modId="minecraft"
 type="required"
 versionRange="[1.21.1,1.22)"
 ordering="NONE"
 side="CLIENT"
 
-[[dependencies.mcgltf_test]]
+[[dependencies.minetomesh_test]]
 modId="neoforge"
 type="required"
 versionRange="[21.1.244,)"

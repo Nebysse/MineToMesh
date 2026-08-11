@@ -1,0 +1,11 @@
+{
+  "itemGroup.minetomesh": "MineToMesh",
+  "item.minetomesh.export_wand": "Export Wand",
+  "minetomesh.error.wand.invalid_binding": "The bound export wand was moved or replaced",
+  "minetomesh.error.wand.incomplete_selection": "Set both selection endpoints before exporting",
+  "minetomesh.error.wand.out_of_bounds": "The selected coordinate is outside the world build limits",
+  "minetomesh.error.wand.wrong_dimension": "The selection is not in the current dimension",
+  "minetomesh.error.wand.invalid_name": "The export name is invalid",
+  "minetomesh.error.wand.no_export_permission": "Only server administrators may export with the wand",
+  "minetomesh.error.wand.already_running": "An export is already running"
+}

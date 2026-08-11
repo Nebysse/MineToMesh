@@ -11,7 +11,7 @@ version = mod_version
 group = mod_group_id
 
 base {
-    archivesName = mod_id
+    archivesName = mod_name
 }
 
 java {
@@ -43,7 +43,7 @@ neoForge {
         serverSmoke {
             server()
             programArgument '--nogui'
-            systemProperty 'mcgltf.serverSmoke', 'true'
+            systemProperty 'minetomesh.serverSmoke', 'true'
         }
         configureEach {
             logLevel = org.slf4j.event.Level.INFO
@@ -54,7 +54,7 @@ neoForge {
         "${mod_id}" {
             sourceSet(sourceSets.main)
         }
-        mcgltf_test {
+        minetomesh_test {
             sourceSet(sourceSets.testmod)
         }
     }

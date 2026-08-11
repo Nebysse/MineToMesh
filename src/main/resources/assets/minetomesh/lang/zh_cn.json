@@ -1,0 +1,11 @@
+{
+  "itemGroup.minetomesh": "MineToMesh",
+  "item.minetomesh.export_wand": "导出魔杖",
+  "minetomesh.error.wand.invalid_binding": "当前菜单绑定的导出魔杖已被移动或替换",
+  "minetomesh.error.wand.incomplete_selection": "请先设置完整的起点和终点",
+  "minetomesh.error.wand.out_of_bounds": "所选坐标超出世界建筑范围",
+  "minetomesh.error.wand.wrong_dimension": "选区不在当前维度",
+  "minetomesh.error.wand.invalid_name": "导出名称无效",
+  "minetomesh.error.wand.no_export_permission": "只有服务器管理员可以使用导出魔杖导出",
+  "minetomesh.error.wand.already_running": "已有导出任务正在运行"
+}
