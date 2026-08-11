@@ -1,5 +1,6 @@
 {
   "itemGroup.mcgltf": "MineToMesh",
+  "item.mcgltf.export_wand": "导出魔杖",
   "block.mcgltf.export_workstation": "区域导出工作台",
   "mcgltf.error.workstation.no_menu": "没有打开工作台菜单",
   "mcgltf.error.workstation.wrong_station": "该请求指向了另一个工作台",

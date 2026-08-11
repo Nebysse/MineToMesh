@@ -1,5 +1,6 @@
 {
   "itemGroup.mcgltf": "MineToMesh",
+  "item.mcgltf.export_wand": "Export Wand",
   "block.mcgltf.export_workstation": "Region Export Workstation",
   "mcgltf.error.workstation.no_menu": "No workstation menu is open",
   "mcgltf.error.workstation.wrong_station": "This request targets a different workstation",
