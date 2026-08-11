@@ -27,6 +27,7 @@ import com.onecuber.mcgltf.scene.MaterialKey;
 import com.onecuber.mcgltf.scene.PrimitiveAccumulator;
 import com.onecuber.mcgltf.scene.PrimitiveMode;
 import com.onecuber.mcgltf.scene.Vec3f;
+import com.onecuber.mcgltf.texture.AtlasSpriteResolver;
 import com.onecuber.mcgltf.texture.GlGpuTextureAccess;
 import com.onecuber.mcgltf.texture.GpuTextureProvider;
 import com.onecuber.mcgltf.texture.ResourceTextureExtractor;
@@ -192,7 +193,9 @@ public final class DefaultExportPipeline {
             this.textures = textures;
             this.options = options;
             SpriteTextureExtractor sprites = new SpriteTextureExtractor(minecraft.getResourceManager());
-            this.blocks = new BlockModelExtractor(sprites, textures);
+            AtlasSpriteResolver atlasSprites = new AtlasSpriteResolver(
+                    atlasId -> minecraft.getModelManager().getAtlas(atlasId));
+            this.blocks = new BlockModelExtractor(sprites, atlasSprites, textures);
             this.fluids = new FluidGeometryCapture(sprites, textures);
             Function<RenderTypeDescriptor, MaterialKey> materialResolver =
                     resourceMaterialResolver(minecraft, textures, materialDiagnostics);

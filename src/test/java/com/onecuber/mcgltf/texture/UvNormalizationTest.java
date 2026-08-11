@@ -18,6 +18,16 @@ class UvNormalizationTest {
     }
 
     @Test
+    void declaredSpriteBoundsExposeCreateRedirectAsOutOfRangeUvs() {
+        Vec2f normalized = SpriteTextureExtractor.normalizeUv(
+                0.50F, 0.30F,
+                0.10F, 0.10F, 0.20F, 0.20F);
+
+        assertEquals(4.0F, normalized.x(), 1.0E-6F);
+        assertEquals(2.0F, normalized.y(), 1.0E-6F);
+    }
+
+    @Test
     void rejectsDegenerateSpriteBounds() {
         assertThrows(IllegalArgumentException.class,
                 () -> SpriteTextureExtractor.normalizeUv(0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F));

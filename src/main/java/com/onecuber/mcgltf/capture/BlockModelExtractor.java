@@ -8,7 +8,10 @@ import com.onecuber.mcgltf.scene.Diagnostic;
 import com.onecuber.mcgltf.scene.MaterialKey;
 import com.onecuber.mcgltf.scene.PrimitiveAccumulator;
 import com.onecuber.mcgltf.scene.Vertex;
+import com.onecuber.mcgltf.scene.Vec2f;
 import com.onecuber.mcgltf.scene.Vec3f;
+import com.onecuber.mcgltf.texture.AtlasSpriteIndex;
+import com.onecuber.mcgltf.texture.AtlasSpriteResolver;
 import com.onecuber.mcgltf.texture.SpriteTextureExtractor;
 import com.onecuber.mcgltf.texture.TextureRegistry;
 import com.onecuber.mcgltf.world.Selection;
@@ -17,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -44,14 +48,19 @@ public final class BlockModelExtractor {
             new CoordinateTransform(new Vec3f(0.0F, 0.0F, 0.0F));
 
     private final SpriteTextureExtractor spriteExtractor;
+    private final AtlasSpriteResolver atlasSpriteResolver;
     private final TextureRegistry textureRegistry;
     private final Map<TextureAtlasSprite, SpriteTextureExtractor.Extraction> spriteCache =
             new IdentityHashMap<>();
+    private final Set<String> reportedRedirects = new HashSet<>();
+    private final Set<String> reportedFailures = new HashSet<>();
 
     public BlockModelExtractor(
             SpriteTextureExtractor spriteExtractor,
+            AtlasSpriteResolver atlasSpriteResolver,
             TextureRegistry textureRegistry) {
         this.spriteExtractor = Objects.requireNonNull(spriteExtractor, "spriteExtractor");
+        this.atlasSpriteResolver = Objects.requireNonNull(atlasSpriteResolver, "atlasSpriteResolver");
         this.textureRegistry = Objects.requireNonNull(textureRegistry, "textureRegistry");
     }
 
@@ -99,7 +108,7 @@ public final class BlockModelExtractor {
                     for (BakedQuad quad : quads) {
                         pending.add(captureQuad(
                                 level, selection, state, position, objectId,
-                                descriptor, quad));
+                                descriptor, quad, diagnostics));
                     }
                 }
             }
@@ -135,16 +144,8 @@ public final class BlockModelExtractor {
             BlockPos position,
             String objectId,
             RenderTypeDescriptor descriptor,
-            BakedQuad quad) throws IOException {
-        TextureAtlasSprite sprite = quad.getSprite();
-        SpriteTextureExtractor.Extraction texture = spriteCache.get(sprite);
-        if (texture == null) {
-            texture = spriteExtractor.extract(sprite);
-            spriteCache.put(sprite, texture);
-            textureRegistry.register(texture.key(), texture.image());
-        }
-        MaterialKey material = MaterialResolver.resolve(descriptor, texture.key());
-
+            BakedQuad quad,
+            List<Diagnostic> diagnostics) throws IOException {
         PoseStack poseStack = new PoseStack();
         Vec3 offset = state.getOffset(level, position);
         poseStack.translate(
@@ -179,16 +180,92 @@ public final class BlockModelExtractor {
                     LightTexture.FULL_BRIGHT},
                 OverlayTexture.NO_OVERLAY,
                 true);
-        List<Vertex> vertices = consumer.finish().stream()
-                .map(vertex -> new Vertex(
-                        LOCAL_TRANSFORM.position(vertex.position()),
-                        LOCAL_TRANSFORM.normal(vertex.normal()),
-                        SpriteTextureExtractor.normalizeUv(
-                                vertex.uv().x(), vertex.uv().y(),
-                                sprite.getU0(), sprite.getV0(), sprite.getU1(), sprite.getV1()),
-                        vertex.color()))
-                .toList();
+        List<Vertex> rawVertices = consumer.finish();
+        List<Vec2f> atlasUvs = rawVertices.stream().map(Vertex::uv).toList();
+        AtlasSpriteResolver.Resolution resolution =
+                atlasSpriteResolver.resolve(quad.getSprite(), atlasUvs);
+        reportResolution(resolution, atlasUvs, selection, position, objectId, quad, diagnostics);
+        TextureAtlasSprite sprite = resolution.sprite();
+        SpriteTextureExtractor.Extraction texture = extraction(sprite);
+        MaterialKey material = MaterialResolver.resolve(descriptor, texture.key());
+        List<Vec2f> normalizedUvs = AtlasSpriteResolver.normalize(
+                atlasUvs, resolution.region());
+        List<Vertex> vertices = new ArrayList<>(rawVertices.size());
+        for (int index = 0; index < rawVertices.size(); index++) {
+            Vertex vertex = rawVertices.get(index);
+            vertices.add(new Vertex(
+                    LOCAL_TRANSFORM.position(vertex.position()),
+                    LOCAL_TRANSFORM.normal(vertex.normal()),
+                    normalizedUvs.get(index),
+                    vertex.color()));
+        }
         return new PendingStream(material, descriptor.primitiveMode(), vertices);
+    }
+
+    private SpriteTextureExtractor.Extraction extraction(
+            TextureAtlasSprite sprite) throws IOException {
+        SpriteTextureExtractor.Extraction texture = spriteCache.get(sprite);
+        if (texture == null) {
+            texture = spriteExtractor.extract(sprite);
+            spriteCache.put(sprite, texture);
+            textureRegistry.register(texture.key(), texture.image());
+        }
+        return texture;
+    }
+
+    private void reportResolution(
+            AtlasSpriteResolver.Resolution resolution,
+            List<Vec2f> atlasUvs,
+            Selection selection,
+            BlockPos position,
+            String objectId,
+            BakedQuad quad,
+            List<Diagnostic> diagnostics) {
+        String rendererClass = quad.getClass().getName();
+        Optional<com.onecuber.mcgltf.world.BlockPoint> diagnosticPosition = Optional.of(
+                new com.onecuber.mcgltf.world.BlockPoint(
+                        selection.min().dimension(),
+                        position.getX(), position.getY(), position.getZ()));
+        if (resolution.kind() == AtlasSpriteIndex.Kind.REDIRECTED) {
+            String key = resolution.declaredId() + "->" + resolution.resolvedId();
+            if (reportedRedirects.add(key)) {
+                diagnostics.add(new Diagnostic(
+                        Diagnostic.Severity.INFO,
+                        "ATLAS_SPRITE_REDIRECTED",
+                        objectId,
+                        diagnosticPosition,
+                        rendererClass,
+                        "",
+                        "Resolved atlas sprite " + resolution.declaredId()
+                                + " to " + resolution.resolvedId()));
+            }
+        } else if (resolution.kind() == AtlasSpriteIndex.Kind.FALLBACK
+                && reportedFailures.add(resolution.declaredId().toString())) {
+            diagnostics.add(new Diagnostic(
+                    Diagnostic.Severity.WARNING,
+                    "ATLAS_SPRITE_RESOLUTION_FAILED",
+                    objectId,
+                    diagnosticPosition,
+                    rendererClass,
+                    "",
+                    "No atlas sprite covered " + uvBounds(atlasUvs)
+                            + "; kept declared sprite " + resolution.declaredId()));
+        }
+    }
+
+    private static String uvBounds(List<Vec2f> uvs) {
+        float minU = Float.POSITIVE_INFINITY;
+        float minV = Float.POSITIVE_INFINITY;
+        float maxU = Float.NEGATIVE_INFINITY;
+        float maxV = Float.NEGATIVE_INFINITY;
+        for (Vec2f uv : uvs) {
+            minU = Math.min(minU, uv.x());
+            minV = Math.min(minV, uv.y());
+            maxU = Math.max(maxU, uv.x());
+            maxV = Math.max(maxV, uv.y());
+        }
+        return String.format(Locale.ROOT, "UV [%.6f, %.6f]-[%.6f, %.6f]",
+                minU, minV, maxU, maxV);
     }
 
     private static boolean shouldRenderFace(
