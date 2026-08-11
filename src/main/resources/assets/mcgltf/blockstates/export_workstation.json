@@ -1,8 +1,0 @@
-{
-  "variants": {
-    "facing=north": { "model": "mcgltf:block/export_workstation" },
-    "facing=east": { "model": "mcgltf:block/export_workstation", "y": 90 },
-    "facing=south": { "model": "mcgltf:block/export_workstation", "y": 180 },
-    "facing=west": { "model": "mcgltf:block/export_workstation", "y": 270 }
-  }
-}

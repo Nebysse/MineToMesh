@@ -1,0 +1,163 @@
+package com.onecuber.mcgltf.wand;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.onecuber.mcgltf.world.BlockPoint;
+import com.onecuber.mcgltf.world.Selection;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.resources.ResourceLocation;
+
+public record ExportWandSelection(
+        Optional<UUID> wandId,
+        Optional<ResourceLocation> selectionDimension,
+        Optional<BlockPos> pos1,
+        Optional<BlockPos> pos2,
+        boolean overlayEnabled,
+        boolean includePlayers,
+        String exportName) {
+    public static final String DEFAULT_EXPORT_NAME = "export";
+    private static final Codec<UUID> UUID_CODEC = Codec.STRING.xmap(
+            UUID::fromString, UUID::toString);
+
+    public static final Codec<ExportWandSelection> CODEC = RecordCodecBuilder.create(instance ->
+            instance.group(
+                    UUID_CODEC.optionalFieldOf("wand_id")
+                            .forGetter(ExportWandSelection::wandId),
+                    ResourceLocation.CODEC.optionalFieldOf("dimension")
+                            .forGetter(ExportWandSelection::selectionDimension),
+                    BlockPos.CODEC.optionalFieldOf("pos1")
+                            .forGetter(ExportWandSelection::pos1),
+                    BlockPos.CODEC.optionalFieldOf("pos2")
+                            .forGetter(ExportWandSelection::pos2),
+                    Codec.BOOL.optionalFieldOf("overlay_enabled", true)
+                            .forGetter(ExportWandSelection::overlayEnabled),
+                    Codec.BOOL.optionalFieldOf("include_players", false)
+                            .forGetter(ExportWandSelection::includePlayers),
+                    Codec.STRING.optionalFieldOf("export_name", DEFAULT_EXPORT_NAME)
+                            .forGetter(ExportWandSelection::exportName))
+                    .apply(instance, ExportWandSelection::new));
+
+    public static final StreamCodec<FriendlyByteBuf, ExportWandSelection> STREAM_CODEC =
+            StreamCodec.of(ExportWandSelection::encode, ExportWandSelection::decode);
+
+    public ExportWandSelection {
+        wandId = Objects.requireNonNull(wandId, "wandId");
+        selectionDimension = Objects.requireNonNull(selectionDimension, "selectionDimension");
+        pos1 = Objects.requireNonNull(pos1, "pos1");
+        pos2 = Objects.requireNonNull(pos2, "pos2");
+        exportName = Objects.requireNonNull(exportName, "exportName");
+        boolean hasEndpoint = pos1.isPresent() || pos2.isPresent();
+        if (selectionDimension.isPresent() != hasEndpoint) {
+            throw new IllegalArgumentException(
+                    "Selection dimension must exist exactly when an endpoint exists");
+        }
+    }
+
+    public static ExportWandSelection empty() {
+        return new ExportWandSelection(
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                true, false, DEFAULT_EXPORT_NAME);
+    }
+
+    public ExportWandSelection ensureIdentity(UUID value) {
+        Objects.requireNonNull(value, "value");
+        if (wandId.isPresent()) {
+            return this;
+        }
+        return new ExportWandSelection(Optional.of(value), selectionDimension,
+                pos1, pos2, overlayEnabled, includePlayers, exportName);
+    }
+
+    public ExportWandSelection setEndpoint(
+            ResourceLocation dimension, Endpoint endpoint, BlockPos position) {
+        Objects.requireNonNull(dimension, "dimension");
+        Objects.requireNonNull(endpoint, "endpoint");
+        Objects.requireNonNull(position, "position");
+        if (selectionDimension.isPresent()
+                && !selectionDimension.orElseThrow().equals(dimension)) {
+            throw new IllegalArgumentException("Selection endpoints must share a dimension");
+        }
+        Optional<BlockPos> first = endpoint == Endpoint.POS1 ? Optional.of(position) : pos1;
+        Optional<BlockPos> second = endpoint == Endpoint.POS2 ? Optional.of(position) : pos2;
+        return new ExportWandSelection(wandId, Optional.of(dimension),
+                first, second, overlayEnabled, includePlayers, exportName);
+    }
+
+    public ExportWandSelection clearSelection() {
+        return new ExportWandSelection(wandId, Optional.empty(),
+                Optional.empty(), Optional.empty(), overlayEnabled, includePlayers, exportName);
+    }
+
+    public ExportWandSelection withOverlayEnabled(boolean value) {
+        return new ExportWandSelection(wandId, selectionDimension,
+                pos1, pos2, value, includePlayers, exportName);
+    }
+
+    public ExportWandSelection withIncludePlayers(boolean value) {
+        return new ExportWandSelection(wandId, selectionDimension,
+                pos1, pos2, overlayEnabled, value, exportName);
+    }
+
+    public ExportWandSelection withExportName(String value) {
+        return new ExportWandSelection(wandId, selectionDimension,
+                pos1, pos2, overlayEnabled, includePlayers, Objects.requireNonNull(value, "value"));
+    }
+
+    public boolean isComplete() {
+        return selectionDimension.isPresent() && pos1.isPresent() && pos2.isPresent();
+    }
+
+    public Optional<Selection> toSelection() {
+        if (!isComplete()) {
+            return Optional.empty();
+        }
+        String dimension = selectionDimension.orElseThrow().toString();
+        BlockPos first = pos1.orElseThrow();
+        BlockPos second = pos2.orElseThrow();
+        return Optional.of(Selection.of(
+                new BlockPoint(dimension, first.getX(), first.getY(), first.getZ()),
+                new BlockPoint(dimension, second.getX(), second.getY(), second.getZ())));
+    }
+
+    private static void encode(
+            FriendlyByteBuf buffer, ExportWandSelection selection) {
+        writeOptional(buffer, selection.wandId, buffer::writeUUID);
+        writeOptional(buffer, selection.selectionDimension,
+                buffer::writeResourceLocation);
+        writeOptional(buffer, selection.pos1, buffer::writeBlockPos);
+        writeOptional(buffer, selection.pos2, buffer::writeBlockPos);
+        buffer.writeBoolean(selection.overlayEnabled);
+        buffer.writeBoolean(selection.includePlayers);
+        buffer.writeUtf(selection.exportName, 64);
+    }
+
+    private static ExportWandSelection decode(FriendlyByteBuf buffer) {
+        Optional<UUID> wandId = readOptional(buffer, buffer::readUUID);
+        Optional<ResourceLocation> dimension = readOptional(
+                buffer, buffer::readResourceLocation);
+        Optional<BlockPos> pos1 = readOptional(buffer, buffer::readBlockPos);
+        Optional<BlockPos> pos2 = readOptional(buffer, buffer::readBlockPos);
+        boolean overlayEnabled = buffer.readBoolean();
+        boolean includePlayers = buffer.readBoolean();
+        String exportName = buffer.readUtf(64);
+        return new ExportWandSelection(
+                wandId, dimension, pos1, pos2, overlayEnabled, includePlayers, exportName);
+    }
+
+    private static <T> void writeOptional(
+            FriendlyByteBuf buffer, Optional<T> value,
+            java.util.function.Consumer<T> writer) {
+        buffer.writeBoolean(value.isPresent());
+        value.ifPresent(writer);
+    }
+
+    private static <T> Optional<T> readOptional(
+            FriendlyByteBuf buffer, java.util.function.Supplier<T> reader) {
+        return buffer.readBoolean() ? Optional.of(reader.get()) : Optional.empty();
+    }
+}

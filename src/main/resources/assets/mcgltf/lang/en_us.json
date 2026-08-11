@@ -1,12 +1,11 @@
 {
   "itemGroup.mcgltf": "MineToMesh",
-  "block.mcgltf.export_workstation": "Region Export Workstation",
-  "mcgltf.error.workstation.no_menu": "No workstation menu is open",
-  "mcgltf.error.workstation.wrong_station": "This request targets a different workstation",
-  "mcgltf.error.workstation.missing_station": "The workstation is no longer present",
-  "mcgltf.error.workstation.too_far": "You are too far from the workstation",
-  "mcgltf.error.workstation.out_of_bounds": "The selected coordinate is outside the world build limits",
-  "mcgltf.error.workstation.invalid_name": "The export name is invalid",
-  "mcgltf.error.workstation.no_export_permission": "Only server administrators may export from this workstation",
-  "mcgltf.error.workstation.already_running": "An export is already running"
+  "item.mcgltf.export_wand": "Export Wand",
+  "mcgltf.error.wand.invalid_binding": "The bound export wand was moved or replaced",
+  "mcgltf.error.wand.incomplete_selection": "Set both selection endpoints before exporting",
+  "mcgltf.error.wand.out_of_bounds": "The selected coordinate is outside the world build limits",
+  "mcgltf.error.wand.wrong_dimension": "The selection is not in the current dimension",
+  "mcgltf.error.wand.invalid_name": "The export name is invalid",
+  "mcgltf.error.wand.no_export_permission": "Only server administrators may export with the wand",
+  "mcgltf.error.wand.already_running": "An export is already running"
 }

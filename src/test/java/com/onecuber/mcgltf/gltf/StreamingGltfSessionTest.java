@@ -2,15 +2,20 @@ package com.onecuber.mcgltf.gltf;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.onecuber.mcgltf.scene.BatchCounters;
 import com.onecuber.mcgltf.scene.CapturedNode;
 import com.onecuber.mcgltf.scene.ChunkBatch;
 import com.onecuber.mcgltf.scene.ColorRgba;
+import com.onecuber.mcgltf.scene.MaterialKey;
 import com.onecuber.mcgltf.scene.PrimitiveData;
+import com.onecuber.mcgltf.scene.TextureKey;
 import com.onecuber.mcgltf.scene.Vertex;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -18,6 +23,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -76,6 +83,73 @@ class StreamingGltfSessionTest {
     }
 
     @Test
+    void coalescesSelectionOverlayFragmentsIntoOneTintedMaskedNodeAndMesh() throws Exception {
+        PrimitiveData primitive = withMaterial(
+                withFirstColor(GltfDocumentBuilderTest.triangle(),
+                        new ColorRgba(80, 160, 40, 255)),
+                overlayMaterial());
+        Map<String, Object> extras = Map.of(
+                "layerRole", "grass_side_overlay",
+                "scope", "selection",
+                "sourceTexture", "minecraft:block/grass_block_side_overlay");
+        CapturedNode first = new CapturedNode(
+                "selection/grass_side_overlay", CapturedNode.Kind.OVERLAY,
+                List.of(primitive), extras);
+        CapturedNode second = new CapturedNode(
+                "selection/grass_side_overlay", CapturedNode.Kind.OVERLAY,
+                List.of(primitive), extras);
+
+        StreamingGltfSession.OutputStatistics statistics;
+        try (StreamingGltfSession session = new StreamingGltfSession(
+                tempDir, "overlay", Map.of())) {
+            session.append(new ChunkBatch(List.of(first), List.of(), BatchCounters.ZERO));
+            session.append(new ChunkBatch(List.of(second), List.of(), BatchCounters.ZERO));
+            statistics = session.finish();
+        }
+
+        JsonObject document = JsonParser.parseString(
+                Files.readString(tempDir.resolve("overlay.gltf"))).getAsJsonObject();
+        assertEquals(1L, statistics.nodeCount());
+        assertEquals(2L, statistics.primitiveCount());
+        assertEquals(1, document.getAsJsonArray("meshes").size());
+        JsonArray primitives = document.getAsJsonArray("meshes").get(0)
+                .getAsJsonObject().getAsJsonArray("primitives");
+        assertEquals(2, primitives.size());
+        assertTrue(primitives.get(0).getAsJsonObject()
+                .getAsJsonObject("attributes").has("COLOR_0"));
+        int materialIndex = primitives.get(0).getAsJsonObject().get("material").getAsInt();
+        assertEquals("MASK", document.getAsJsonArray("materials").get(materialIndex)
+                .getAsJsonObject().get("alphaMode").getAsString());
+        JsonArray nodes = document.getAsJsonArray("nodes");
+        long matchingNodes = StreamSupport.stream(nodes.spliterator(), false)
+                .map(JsonElement::getAsJsonObject)
+                .filter(node -> node.has("name")
+                        && node.get("name").getAsString()
+                        .equals("selection/grass_side_overlay"))
+                .count();
+        assertEquals(1L, matchingNodes);
+    }
+
+    @Test
+    void rejectsOverlayFragmentsWithConflictingExtras() throws Exception {
+        PrimitiveData primitive = GltfDocumentBuilderTest.triangle();
+        CapturedNode first = new CapturedNode(
+                "selection/grass_side_overlay", CapturedNode.Kind.OVERLAY,
+                List.of(primitive), Map.of("scope", "selection"));
+        CapturedNode conflicting = new CapturedNode(
+                "selection/grass_side_overlay", CapturedNode.Kind.OVERLAY,
+                List.of(primitive), Map.of("scope", "section"));
+
+        try (StreamingGltfSession session = new StreamingGltfSession(
+                tempDir, "conflicting-overlay", Map.of())) {
+            session.append(new ChunkBatch(List.of(first), List.of(), BatchCounters.ZERO));
+            assertThrows(IllegalArgumentException.class,
+                    () -> session.append(new ChunkBatch(
+                            List.of(conflicting), List.of(), BatchCounters.ZERO)));
+        }
+    }
+
+    @Test
     void internalValidatorAcceptsCompleteDocumentAndRejectsMissingResources() throws Exception {
         PrimitiveData primitive = GltfDocumentBuilderTest.triangle();
         CapturedNode node = new CapturedNode("first", CapturedNode.Kind.CHUNK,
@@ -111,6 +185,30 @@ class StreamingGltfSessionTest {
     private static JsonObject firstPrimitive(JsonObject document) {
         return document.getAsJsonArray("meshes").get(0).getAsJsonObject()
                 .getAsJsonArray("primitives").get(0).getAsJsonObject();
+    }
+
+    private static MaterialKey overlayMaterial() {
+        return new MaterialKey(
+                new TextureKey(
+                        TextureKey.Kind.ATLAS_SPRITE,
+                        "minecraft:block/grass_block_side_overlay",
+                        "textures/minecraft/block/grass_block_side_overlay.png"),
+                MaterialKey.AlphaMode.MASK,
+                Optional.of(0.5F),
+                true,
+                false,
+                MaterialKey.BlendSemantic.STANDARD,
+                MaterialKey.SamplerMode.NEAREST);
+    }
+
+    private static PrimitiveData withMaterial(
+            PrimitiveData source,
+            MaterialKey material) {
+        return new PrimitiveData(
+                source.vertices(),
+                source.sourceMode(),
+                source.streamVertexCounts(),
+                material);
     }
 
     private static PrimitiveData withFirstColor(

@@ -56,6 +56,20 @@ class PrimitiveAccumulatorTest {
     }
 
     @Test
+    void overlayNodesDefensivelyCopyTheirPrimitiveList() {
+        PrimitiveData primitive = new PrimitiveData(
+                vertices(3), PrimitiveMode.TRIANGLES, new int[] {3}, material("overlay"));
+        CapturedNode overlay = new CapturedNode(
+                "selection/grass_side_overlay",
+                CapturedNode.Kind.OVERLAY,
+                List.of(primitive),
+                Map.of("scope", "selection"));
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> overlay.primitives().add(primitive));
+    }
+
+    @Test
     void sceneBatchesAreImmutableAndCountersAddExactly() {
         PrimitiveData primitive = new PrimitiveData(
                 vertices(3), PrimitiveMode.TRIANGLES, new int[] {3}, material("stone"));

@@ -1,11 +1,11 @@
 package com.onecuber.mcgltf.client;
 
 import com.onecuber.mcgltf.McGltf;
-import com.onecuber.mcgltf.client.workstation.ExportWorkstationScreen;
-import com.onecuber.mcgltf.client.workstation.OverlayKey;
-import com.onecuber.mcgltf.client.workstation.SelectionOverlayRenderer;
-import com.onecuber.mcgltf.client.workstation.SelectionOverlayState;
-import com.onecuber.mcgltf.client.workstation.WorkstationExportController;
+import com.onecuber.mcgltf.client.wand.ExportWandController;
+import com.onecuber.mcgltf.client.wand.HeldWandOverlaySource;
+import com.onecuber.mcgltf.client.wand.SelectionOverlayRenderer;
+import com.onecuber.mcgltf.client.wand.ExportWandScreen;
+import com.onecuber.mcgltf.client.wand.WandClientInput;
 import com.onecuber.mcgltf.command.ClientMessages;
 import com.onecuber.mcgltf.command.McGltfCommands;
 import com.onecuber.mcgltf.content.McGltfContent;
@@ -13,8 +13,8 @@ import com.onecuber.mcgltf.job.DefaultExportPipeline;
 import com.onecuber.mcgltf.job.ExportJob;
 import com.onecuber.mcgltf.job.ExportJobManager;
 import com.onecuber.mcgltf.job.ManagedJob;
-import com.onecuber.mcgltf.network.WorkstationClientReceiver;
-import com.onecuber.mcgltf.workstation.ExportWorkstationMenu;
+import com.onecuber.mcgltf.network.WandClientReceiver;
+import com.onecuber.mcgltf.wand.ExportWandMenu;
 import com.onecuber.mcgltf.world.SelectionStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -34,28 +34,26 @@ import net.neoforged.neoforge.common.NeoForge;
 public final class McGltfClient {
     private final SelectionStore selectionStore = new SelectionStore();
     private final ExportJobManager jobManager = new ExportJobManager();
-    private final WorkstationExportController workstationController;
-    private final SelectionOverlayState overlayState = new SelectionOverlayState();
+    private final WandClientInput wandInput = new WandClientInput();
+    private final ExportWandController wandController;
     private final SelectionOverlayRenderer overlayRenderer;
     private final McGltfCommands commands;
     private String activeDimension;
     private ManagedJob notifiedTerminalJob;
 
     public McGltfClient(IEventBus modBus) {
-        workstationController = new WorkstationExportController(
-                (coordinates, dimension, name, telemetry) -> DefaultExportPipeline.create(
-                        Minecraft.getInstance(),
-                        coordinates.toSelection(dimension),
-                        name,
-                        telemetry),
-                WorkstationExportController.fromManager(jobManager));
-        overlayRenderer = new SelectionOverlayRenderer(overlayState);
-        WorkstationClientReceiver.install(
-                workstationController::accept, workstationController::reject);
+        wandController = new ExportWandController(
+                (selection, name, options, telemetry) -> DefaultExportPipeline.create(
+                        Minecraft.getInstance(), selection, name, options, telemetry),
+                ExportWandController.fromManager(jobManager));
+        overlayRenderer = new SelectionOverlayRenderer(
+                new HeldWandOverlaySource());
+        WandClientReceiver.install(wandController::accept, wandController::reject);
         commands = new McGltfCommands(selectionStore, jobManager,
                 (selection, name) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name));
         NeoForge.EVENT_BUS.addListener(commands::onRegisterCommands);
+        NeoForge.EVENT_BUS.addListener(wandInput::onInteractionKey);
         NeoForge.EVENT_BUS.addListener(this::onClientTick);
         NeoForge.EVENT_BUS.addListener(this::onLoggingOut);
         NeoForge.EVENT_BUS.addListener(overlayRenderer::onRenderLevel);
@@ -65,17 +63,16 @@ public final class McGltfClient {
 
     private void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
+        wandInput.tick(minecraft);
         if (minecraft.level != null) {
             String dimension = minecraft.level.dimension().location().toString();
             if (activeDimension != null && !activeDimension.equals(dimension)) {
                 selectionStore.clear();
-                overlayState.dimensionChanged(dimension);
                 jobManager.cancel("dimension_change");
             }
             activeDimension = dimension;
         }
         jobManager.tick();
-        workstationController.tick();
         notifyTerminalResult();
     }
 
@@ -99,16 +96,15 @@ public final class McGltfClient {
     }
 
     private void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
-        event.register(McGltfContent.EXPORT_WORKSTATION_MENU.get(),
-                new MenuScreens.ScreenConstructor<ExportWorkstationMenu, ExportWorkstationScreen>() {
+        event.register(McGltfContent.EXPORT_WAND_MENU.get(),
+                new MenuScreens.ScreenConstructor<ExportWandMenu, ExportWandScreen>() {
                     @Override
-                    public ExportWorkstationScreen create(
-                            ExportWorkstationMenu menu,
+                    public ExportWandScreen create(
+                            ExportWandMenu menu,
                             Inventory inventory,
                             Component title) {
-                        return new ExportWorkstationScreen(
-                                menu, inventory, title,
-                                workstationController, overlayState);
+                        return new ExportWandScreen(
+                                menu, inventory, title, wandController);
                     }
                 });
     }
@@ -116,9 +112,8 @@ public final class McGltfClient {
     private void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         selectionStore.clear();
         activeDimension = null;
-        overlayState.clear();
         jobManager.cancel("logout");
-        workstationController.unbind();
+        wandController.unbind();
     }
 
     private void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {

@@ -11,25 +11,29 @@ class EntityFilterTest {
     private static final AABB INTERSECTING = new AABB(1, 1, 1, 3, 3, 3);
 
     @Test
-    void excludesPlayersRemovedEntitiesAndNonIntersectingBoxes() {
+    void excludesPlayersWhenPlayerExportIsDisabledAndRejectsRemovedOrOutOfBoundsEntities() {
         assertFalse(EntityCapture.shouldInclude(
-                EntityCapture.EntityCategory.PLAYER, false, INTERSECTING, SELECTION));
+                EntityCapture.EntityCategory.PLAYER, false, false, INTERSECTING, SELECTION));
+        assertTrue(EntityCapture.shouldInclude(
+                EntityCapture.EntityCategory.PLAYER, true, false, INTERSECTING, SELECTION));
         assertFalse(EntityCapture.shouldInclude(
-                EntityCapture.EntityCategory.LIVING, true, INTERSECTING, SELECTION));
+                EntityCapture.EntityCategory.PLAYER, true, true, INTERSECTING, SELECTION));
         assertFalse(EntityCapture.shouldInclude(
-                EntityCapture.EntityCategory.ITEM, false,
+                EntityCapture.EntityCategory.LIVING, false, true, INTERSECTING, SELECTION));
+        assertFalse(EntityCapture.shouldInclude(
+                EntityCapture.EntityCategory.ITEM, false, false,
                 new AABB(3, 3, 3, 4, 4, 4), SELECTION));
     }
 
     @Test
     void includesSupportedEntityKindsWhenTheirBoxesIntersect() {
         assertTrue(EntityCapture.shouldInclude(
-                EntityCapture.EntityCategory.LIVING, false, INTERSECTING, SELECTION));
+                EntityCapture.EntityCategory.LIVING, false, false, INTERSECTING, SELECTION));
         assertTrue(EntityCapture.shouldInclude(
-                EntityCapture.EntityCategory.VEHICLE, false, INTERSECTING, SELECTION));
+                EntityCapture.EntityCategory.VEHICLE, false, false, INTERSECTING, SELECTION));
         assertTrue(EntityCapture.shouldInclude(
-                EntityCapture.EntityCategory.ARMOR_STAND, false, INTERSECTING, SELECTION));
+                EntityCapture.EntityCategory.ARMOR_STAND, false, false, INTERSECTING, SELECTION));
         assertTrue(EntityCapture.shouldInclude(
-                EntityCapture.EntityCategory.ITEM, false, INTERSECTING, SELECTION));
+                EntityCapture.EntityCategory.ITEM, false, false, INTERSECTING, SELECTION));
     }
 }

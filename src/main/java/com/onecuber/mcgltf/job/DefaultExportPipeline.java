@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.onecuber.mcgltf.McGltf;
 import com.onecuber.mcgltf.capture.BlockEntityCapture;
 import com.onecuber.mcgltf.capture.BlockModelExtractor;
+import com.onecuber.mcgltf.capture.BlockPrimitiveRouter;
 import com.onecuber.mcgltf.capture.CaptureState;
 import com.onecuber.mcgltf.capture.EntityCapture;
 import com.onecuber.mcgltf.capture.FluidGeometryCapture;
@@ -27,6 +28,7 @@ import com.onecuber.mcgltf.scene.MaterialKey;
 import com.onecuber.mcgltf.scene.PrimitiveAccumulator;
 import com.onecuber.mcgltf.scene.PrimitiveMode;
 import com.onecuber.mcgltf.scene.Vec3f;
+import com.onecuber.mcgltf.texture.AtlasSpriteResolver;
 import com.onecuber.mcgltf.texture.GlGpuTextureAccess;
 import com.onecuber.mcgltf.texture.GpuTextureProvider;
 import com.onecuber.mcgltf.texture.ResourceTextureExtractor;
@@ -88,7 +90,7 @@ public final class DefaultExportPipeline {
             Minecraft minecraft,
             Selection selection,
             ExportName name) throws IOException {
-        return create(minecraft, selection, name, new ExportTelemetry());
+        return create(minecraft, selection, name, ExportOptions.DEFAULT, new ExportTelemetry());
     }
 
     public static ExportJob create(
@@ -96,9 +98,19 @@ public final class DefaultExportPipeline {
             Selection selection,
             ExportName name,
             ExportTelemetry telemetry) throws IOException {
+        return create(minecraft, selection, name, ExportOptions.DEFAULT, telemetry);
+    }
+
+    public static ExportJob create(
+            Minecraft minecraft,
+            Selection selection,
+            ExportName name,
+            ExportOptions options,
+            ExportTelemetry telemetry) throws IOException {
         Objects.requireNonNull(minecraft, "minecraft");
         Objects.requireNonNull(selection, "selection");
         Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(options, "options");
         Objects.requireNonNull(telemetry, "telemetry");
         ClientLevel level = Objects.requireNonNull(minecraft.level, "No active client world");
         ExportPlan plan = new WorldPlanner().plan(level, selection);
@@ -108,13 +120,13 @@ public final class DefaultExportPipeline {
             TextureRegistry textures = new TextureRegistry();
             textures.register(PlaceholderFactory.TEXTURE, PlaceholderFactory.textureImage());
             ProductionCaptureSource source = new ProductionCaptureSource(
-                    minecraft, level, plan, textures);
+                    minecraft, level, plan, textures, options);
             AsyncBatchSink sink = new AsyncBatchSink(
                     transaction,
                     textures,
                     name,
                     plan,
-                    rootExtras(minecraft, plan),
+                    rootExtras(minecraft, plan, options),
                     level.getGameTime(),
                     telemetry);
             return new ExportJob(
@@ -125,7 +137,8 @@ public final class DefaultExportPipeline {
         }
     }
 
-    private static Map<String, Object> rootExtras(Minecraft minecraft, ExportPlan plan) {
+    private static Map<String, Object> rootExtras(
+            Minecraft minecraft, ExportPlan plan, ExportOptions options) {
         Selection selection = plan.selection();
         Map<String, Object> extras = new LinkedHashMap<>();
         extras.put("minecraftVersion", "1.21.1");
@@ -146,6 +159,7 @@ public final class DefaultExportPipeline {
                 .toList());
         extras.put("snapshotMode", "rolling_client_snapshot");
         extras.put("formats", List.of("gltf", "obj"));
+        extras.put("includePlayers", options.includePlayers());
         extras.put("sourceTopologyPreservedInObj", true);
         return extras;
     }
@@ -162,6 +176,7 @@ public final class DefaultExportPipeline {
         private final ClientLevel level;
         private final ExportPlan plan;
         private final TextureRegistry textures;
+        private final ExportOptions options;
         private final BlockModelExtractor blocks;
         private final FluidGeometryCapture fluids;
         private final BlockEntityCapture blockEntities;
@@ -172,12 +187,16 @@ public final class DefaultExportPipeline {
                 Minecraft minecraft,
                 ClientLevel level,
                 ExportPlan plan,
-                TextureRegistry textures) {
+                TextureRegistry textures,
+                ExportOptions options) {
             this.level = level;
             this.plan = plan;
             this.textures = textures;
+            this.options = options;
             SpriteTextureExtractor sprites = new SpriteTextureExtractor(minecraft.getResourceManager());
-            this.blocks = new BlockModelExtractor(sprites, textures);
+            AtlasSpriteResolver atlasSprites = new AtlasSpriteResolver(
+                    atlasId -> minecraft.getModelManager().getAtlas(atlasId));
+            this.blocks = new BlockModelExtractor(sprites, atlasSprites, textures);
             this.fluids = new FluidGeometryCapture(sprites, textures);
             Function<RenderTypeDescriptor, MaterialKey> materialResolver =
                     resourceMaterialResolver(minecraft, textures, materialDiagnostics);
@@ -187,7 +206,8 @@ public final class DefaultExportPipeline {
 
         @Override
         public ChunkBatch captureEntities() {
-            EntityCapture.CaptureResult captured = entities.captureAll(level, plan.selection());
+            EntityCapture.CaptureResult captured = entities.captureAll(
+                    level, plan.selection(), options.includePlayers());
             List<Diagnostic> diagnostics = new ArrayList<>(captured.diagnostics());
             diagnostics.addAll(drainMaterialDiagnostics());
             return new ChunkBatch(captured.nodes(), diagnostics, captured.counters());
@@ -212,6 +232,7 @@ public final class DefaultExportPipeline {
         private final class SectionCursor implements ExportJob.SectionCapture {
             private final ExportPlan.SectionWork work;
             private final PrimitiveAccumulator accumulator;
+            private final PrimitiveAccumulator overlayAccumulator;
             private final List<CapturedNode> nodes = new ArrayList<>();
             private final List<Diagnostic> diagnostics = new ArrayList<>();
             private BatchCounters counters = BatchCounters.ZERO;
@@ -220,6 +241,8 @@ public final class DefaultExportPipeline {
             private SectionCursor(ExportPlan.SectionWork work) {
                 this.work = work;
                 this.accumulator = new PrimitiveAccumulator(objectId());
+                this.overlayAccumulator = new PrimitiveAccumulator(
+                        BlockPrimitiveRouter.OVERLAY_OBJECT_NAME);
             }
 
             @Override
@@ -239,7 +262,7 @@ public final class DefaultExportPipeline {
                 counters = counters.plus(new BatchCounters(1, 0, 0, 0, 0, 0, 0, 0, 0));
 
                 BlockModelExtractor.CaptureResult block = blocks.capture(
-                        level, position, plan.selection(), accumulator);
+                        level, position, plan.selection(), accumulator, overlayAccumulator);
                 counters = counters.plus(block.counters());
                 diagnostics.addAll(block.diagnostics());
 
@@ -279,7 +302,9 @@ public final class DefaultExportPipeline {
             @Override
             public ChunkBatch finish() {
                 PrimitiveAccumulator.SealResult sealed = accumulator.seal();
+                PrimitiveAccumulator.SealResult overlaySealed = overlayAccumulator.seal();
                 diagnostics.addAll(sealed.diagnostics());
+                diagnostics.addAll(overlaySealed.diagnostics());
                 diagnostics.addAll(drainMaterialDiagnostics());
                 if (!sealed.primitives().isEmpty()) {
                     nodes.addFirst(new CapturedNode(
@@ -290,6 +315,16 @@ public final class DefaultExportPipeline {
                                     "chunkX", work.section().chunkX(),
                                     "chunkZ", work.section().chunkZ(),
                                     "sectionY", work.section().sectionY())));
+                }
+                if (!overlaySealed.primitives().isEmpty()) {
+                    nodes.add(new CapturedNode(
+                            BlockPrimitiveRouter.OVERLAY_OBJECT_NAME,
+                            CapturedNode.Kind.OVERLAY,
+                            overlaySealed.primitives(),
+                            Map.of(
+                                    "layerRole", "grass_side_overlay",
+                                    "scope", "selection",
+                                    "sourceTexture", BlockPrimitiveRouter.GRASS_SIDE_OVERLAY_ID)));
                 }
                 return new ChunkBatch(nodes, diagnostics, counters);
             }

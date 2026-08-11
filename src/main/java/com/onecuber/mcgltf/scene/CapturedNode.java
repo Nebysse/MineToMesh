@@ -22,6 +22,7 @@ public record CapturedNode(
         CHUNK,
         BLOCK_ENTITY,
         ENTITY,
-        PLACEHOLDER
+        PLACEHOLDER,
+        OVERLAY
     }
 }

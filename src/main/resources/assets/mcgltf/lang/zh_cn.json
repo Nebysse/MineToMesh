@@ -1,12 +1,11 @@
 {
   "itemGroup.mcgltf": "MineToMesh",
-  "block.mcgltf.export_workstation": "区域导出工作台",
-  "mcgltf.error.workstation.no_menu": "没有打开工作台菜单",
-  "mcgltf.error.workstation.wrong_station": "该请求指向了另一个工作台",
-  "mcgltf.error.workstation.missing_station": "工作台已不存在",
-  "mcgltf.error.workstation.too_far": "距离工作台太远",
-  "mcgltf.error.workstation.out_of_bounds": "所选坐标超出世界建筑范围",
-  "mcgltf.error.workstation.invalid_name": "导出名称无效",
-  "mcgltf.error.workstation.no_export_permission": "只有服务器管理员可以使用工作台导出",
-  "mcgltf.error.workstation.already_running": "已有导出任务正在运行"
+  "item.mcgltf.export_wand": "导出魔杖",
+  "mcgltf.error.wand.invalid_binding": "当前菜单绑定的导出魔杖已被移动或替换",
+  "mcgltf.error.wand.incomplete_selection": "请先设置完整的起点和终点",
+  "mcgltf.error.wand.out_of_bounds": "所选坐标超出世界建筑范围",
+  "mcgltf.error.wand.wrong_dimension": "选区不在当前维度",
+  "mcgltf.error.wand.invalid_name": "导出名称无效",
+  "mcgltf.error.wand.no_export_permission": "只有服务器管理员可以使用导出魔杖导出",
+  "mcgltf.error.wand.already_running": "已有导出任务正在运行"
 }
