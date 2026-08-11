@@ -37,6 +37,28 @@ class ExportWandVisualIntegrationTest {
     }
 
     @Test
+    void forcefieldShellUsesVanillaWorldBorderTexturePipelineAndWorldSpaceUvs() throws Exception {
+        String renderer = source("client/wand/SelectionOverlayRenderer.java");
+        assertTrue(renderer.contains("DefaultVertexFormat.POSITION_TEX"));
+        assertTrue(renderer.contains("GameRenderer::getPositionTexShader"));
+        assertTrue(renderer.contains("RenderSystem.setShaderColor("));
+        assertTrue(renderer.contains("worldUv("));
+        assertFalse(renderer.contains("RenderType.entityTranslucent(FORCEFIELD)"));
+    }
+
+    @Test
+    void activeScreenKeepsLocalDraftsAndShellUsesTextureAlphaUnmodified() throws Exception {
+        String screen = source("client/wand/ExportWandScreen.java");
+        int tick = screen.indexOf("public void containerTick()");
+        int end = screen.indexOf("private boolean commitFocusLosses()", tick);
+        String tickBody = screen.substring(tick, end);
+        assertFalse(tickBody.contains("refreshFromMenu()"));
+        assertFalse(tickBody.contains("syncOverlayFromMenu()"));
+        String renderer = source("client/wand/SelectionOverlayRenderer.java");
+        assertTrue(renderer.contains("FACE_BLUE / 255.0F, 1.0F)"));
+    }
+
+    @Test
     void screenUsesWandPayloadsWithoutFeetControls() throws Exception {
         String screen = source("client/wand/ExportWandScreen.java");
         assertFalse(screen.contains("feetButton"));

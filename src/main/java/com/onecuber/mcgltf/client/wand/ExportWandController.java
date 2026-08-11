@@ -1,6 +1,7 @@
 package com.onecuber.mcgltf.client.wand;
 
 import com.onecuber.mcgltf.job.ExportJobManager;
+import com.onecuber.mcgltf.job.ExportOptions;
 import com.onecuber.mcgltf.job.ExportSummary;
 import com.onecuber.mcgltf.job.ExportTelemetry;
 import com.onecuber.mcgltf.job.ManagedJob;
@@ -28,6 +29,7 @@ public final class ExportWandController {
         ManagedJob start(
                 Selection selection,
                 ExportName name,
+                ExportOptions options,
                 ExportTelemetry telemetry) throws Exception;
     }
 
@@ -91,7 +93,8 @@ public final class ExportWandController {
         try {
             ExportName name = ExportName.parse(grant.exportName());
             Selection selection = selectionFrom(grant);
-            ManagedJob job = starter.start(selection, name, telemetry);
+            ManagedJob job = starter.start(selection, name,
+                    new ExportOptions(grant.includePlayers()), telemetry);
             if (!jobs.start(job)) {
                 state = State.FAILED;
                 rejectionKey = "mcgltf.error.wand.already_running";

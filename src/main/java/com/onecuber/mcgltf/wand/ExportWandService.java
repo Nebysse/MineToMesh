@@ -108,6 +108,16 @@ public final class ExportWandService {
         return Result.UPDATED;
     }
 
+    public Result setIncludePlayers(ItemStack stack, boolean includePlayers) {
+        if (!isWand(stack)) {
+            return Result.INVALID_WAND;
+        }
+        ExportWandSelection candidate = ensureIdentity(selection(stack))
+                .withIncludePlayers(includePlayers);
+        stack.set(McGltfContent.EXPORT_WAND_SELECTION.get(), candidate);
+        return Result.UPDATED;
+    }
+
     public Result setExportName(ItemStack stack, String exportName) {
         Objects.requireNonNull(exportName, "exportName");
         if (!isWand(stack)) {

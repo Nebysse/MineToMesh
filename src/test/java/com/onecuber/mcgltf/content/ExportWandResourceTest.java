@@ -42,31 +42,40 @@ class ExportWandResourceTest {
     }
 
     @Test
-    void itemTextureIsCrispSixteenPixelRgbaArtwork() throws Exception {
+    void itemTextureIsCrispThirtyTwoPixelRgbaArtworkWithoutGreenScreenResidue() throws Exception {
         Path texture = projectRoot().resolve(
                 "src/main/resources/assets/mcgltf/textures/item/export_wand.png");
         BufferedImage image = ImageIO.read(texture.toFile());
-        assertEquals(16, image.getWidth());
-        assertEquals(16, image.getHeight());
+        assertEquals(32, image.getWidth());
+        assertEquals(32, image.getHeight());
         assertTrue(image.getColorModel().hasAlpha());
-        int visible = 0;
-        boolean hasOrange = false;
-        boolean hasBlue = false;
-        for (int y = 0; y < 16; y++) {
-            for (int x = 0; x < 16; x++) {
+        int transparent = 0;
+        int opaque = 0;
+        int semiTransparent = 0;
+        int green = 0;
+        for (int y = 0; y < 32; y++) {
+            for (int x = 0; x < 32; x++) {
                 int argb = image.getRGB(x, y);
-                if ((argb >>> 24) != 0) {
-                    visible++;
+                int alpha = argb >>> 24;
+                if (alpha == 0) {
+                    transparent++;
+                } else if (alpha == 255) {
+                    opaque++;
+                } else {
+                    semiTransparent++;
                 }
-                int rgb = argb & 0xFFFFFF;
-                hasOrange |= rgb == 0xED741C || rgb == 0xF08A33;
-                hasBlue |= rgb == 0x3488D8 || rgb == 0x3C9BEC;
+                int red = (argb >>> 16) & 0xFF;
+                int greenChannel = (argb >>> 8) & 0xFF;
+                int blue = argb & 0xFF;
+                if (alpha > 0 && greenChannel > 200 && red < 30 && blue < 30) {
+                    green++;
+                }
             }
         }
-        assertTrue(visible >= 35 && visible <= 90,
-                "wand silhouette must be legible without filling the icon");
-        assertTrue(hasOrange, "texture must carry the POS1 orange accent");
-        assertTrue(hasBlue, "texture must carry the POS2 blue accent");
+        assertEquals(760, transparent);
+        assertEquals(264, opaque);
+        assertEquals(0, semiTransparent);
+        assertEquals(0, green);
     }
 
     @Test

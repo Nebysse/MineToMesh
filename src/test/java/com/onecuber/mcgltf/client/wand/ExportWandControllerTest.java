@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.onecuber.mcgltf.job.ExportProgress;
+import com.onecuber.mcgltf.job.ExportOptions;
 import com.onecuber.mcgltf.job.ExportSummary;
 import com.onecuber.mcgltf.job.ExportTelemetry;
 import com.onecuber.mcgltf.job.JobState;
@@ -102,7 +103,7 @@ class ExportWandControllerTest {
     private static ExportWandGrantedPayload grant(UUID id, String dimension) {
         return new ExportWandGrantedPayload(
                 id, "flower_factory",
-                new BlockPos(0, 64, 0), new BlockPos(10, 70, 10), dimension);
+                new BlockPos(0, 64, 0), new BlockPos(10, 70, 10), dimension, false);
     }
 
     private static final class FakeJobFactory implements ExportWandController.JobStarter {
@@ -110,7 +111,8 @@ class ExportWandControllerTest {
 
         @Override
         public ManagedJob start(
-                Selection selection, ExportName name, ExportTelemetry telemetry) {
+                Selection selection, ExportName name, ExportOptions options,
+                ExportTelemetry telemetry) {
             lastJob = new FakeJob(JobState.CAPTURING);
             return lastJob;
         }

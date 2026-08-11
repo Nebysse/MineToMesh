@@ -18,6 +18,7 @@ public record ExportWandSelection(
         Optional<BlockPos> pos1,
         Optional<BlockPos> pos2,
         boolean overlayEnabled,
+        boolean includePlayers,
         String exportName) {
     public static final String DEFAULT_EXPORT_NAME = "export";
     private static final Codec<UUID> UUID_CODEC = Codec.STRING.xmap(
@@ -35,6 +36,8 @@ public record ExportWandSelection(
                             .forGetter(ExportWandSelection::pos2),
                     Codec.BOOL.optionalFieldOf("overlay_enabled", true)
                             .forGetter(ExportWandSelection::overlayEnabled),
+                    Codec.BOOL.optionalFieldOf("include_players", false)
+                            .forGetter(ExportWandSelection::includePlayers),
                     Codec.STRING.optionalFieldOf("export_name", DEFAULT_EXPORT_NAME)
                             .forGetter(ExportWandSelection::exportName))
                     .apply(instance, ExportWandSelection::new));
@@ -58,7 +61,7 @@ public record ExportWandSelection(
     public static ExportWandSelection empty() {
         return new ExportWandSelection(
                 Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-                true, DEFAULT_EXPORT_NAME);
+                true, false, DEFAULT_EXPORT_NAME);
     }
 
     public ExportWandSelection ensureIdentity(UUID value) {
@@ -67,7 +70,7 @@ public record ExportWandSelection(
             return this;
         }
         return new ExportWandSelection(Optional.of(value), selectionDimension,
-                pos1, pos2, overlayEnabled, exportName);
+                pos1, pos2, overlayEnabled, includePlayers, exportName);
     }
 
     public ExportWandSelection setEndpoint(
@@ -82,22 +85,27 @@ public record ExportWandSelection(
         Optional<BlockPos> first = endpoint == Endpoint.POS1 ? Optional.of(position) : pos1;
         Optional<BlockPos> second = endpoint == Endpoint.POS2 ? Optional.of(position) : pos2;
         return new ExportWandSelection(wandId, Optional.of(dimension),
-                first, second, overlayEnabled, exportName);
+                first, second, overlayEnabled, includePlayers, exportName);
     }
 
     public ExportWandSelection clearSelection() {
         return new ExportWandSelection(wandId, Optional.empty(),
-                Optional.empty(), Optional.empty(), overlayEnabled, exportName);
+                Optional.empty(), Optional.empty(), overlayEnabled, includePlayers, exportName);
     }
 
     public ExportWandSelection withOverlayEnabled(boolean value) {
         return new ExportWandSelection(wandId, selectionDimension,
-                pos1, pos2, value, exportName);
+                pos1, pos2, value, includePlayers, exportName);
+    }
+
+    public ExportWandSelection withIncludePlayers(boolean value) {
+        return new ExportWandSelection(wandId, selectionDimension,
+                pos1, pos2, overlayEnabled, value, exportName);
     }
 
     public ExportWandSelection withExportName(String value) {
         return new ExportWandSelection(wandId, selectionDimension,
-                pos1, pos2, overlayEnabled, Objects.requireNonNull(value, "value"));
+                pos1, pos2, overlayEnabled, includePlayers, Objects.requireNonNull(value, "value"));
     }
 
     public boolean isComplete() {
@@ -124,6 +132,7 @@ public record ExportWandSelection(
         writeOptional(buffer, selection.pos1, buffer::writeBlockPos);
         writeOptional(buffer, selection.pos2, buffer::writeBlockPos);
         buffer.writeBoolean(selection.overlayEnabled);
+        buffer.writeBoolean(selection.includePlayers);
         buffer.writeUtf(selection.exportName, 64);
     }
 
@@ -134,9 +143,10 @@ public record ExportWandSelection(
         Optional<BlockPos> pos1 = readOptional(buffer, buffer::readBlockPos);
         Optional<BlockPos> pos2 = readOptional(buffer, buffer::readBlockPos);
         boolean overlayEnabled = buffer.readBoolean();
+        boolean includePlayers = buffer.readBoolean();
         String exportName = buffer.readUtf(64);
         return new ExportWandSelection(
-                wandId, dimension, pos1, pos2, overlayEnabled, exportName);
+                wandId, dimension, pos1, pos2, overlayEnabled, includePlayers, exportName);
     }
 
     private static <T> void writeOptional(

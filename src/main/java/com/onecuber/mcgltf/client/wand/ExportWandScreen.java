@@ -5,6 +5,7 @@ import com.onecuber.mcgltf.job.ExportSummary;
 import com.onecuber.mcgltf.job.ExportTelemetry;
 import com.onecuber.mcgltf.network.ExportWandRequestPayload;
 import com.onecuber.mcgltf.network.ToggleWandOverlayPayload;
+import com.onecuber.mcgltf.network.ToggleWandIncludePlayersPayload;
 import com.onecuber.mcgltf.network.UpdateWandEndpointPayload;
 import com.onecuber.mcgltf.network.UpdateWandExportNamePayload;
 import com.onecuber.mcgltf.output.ExportName;
@@ -114,7 +115,11 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         }
 
         static Rect overlayButton() {
-            return new Rect(LEFT.x() + 12, LEFT.y() + 144, 188, 16);
+            return new Rect(LEFT.x() + 12, LEFT.y() + 144, 92, 16);
+        }
+
+        static Rect includePlayersButton() {
+            return new Rect(LEFT.x() + 108, LEFT.y() + 144, 92, 16);
         }
 
         static Rect nameField() {
@@ -140,7 +145,9 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
     private Button exportButton;
     private Button cancelButton;
     private Button overlayButton;
+    private Button includePlayersButton;
     private boolean overlayVisible;
+    private boolean includePlayers;
     private boolean controllerBound;
     private boolean nameWasFocused;
     private final boolean[] coordinateWasFocused = new boolean[6];
@@ -218,6 +225,15 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
                 ExportWandTextures.GUI_059,
                 ExportWandTextures.GUI_060,
                 () -> overlayVisible));
+        includePlayersButton = addRenderableWidget(skinnedToggleButton(
+                Component.literal("导出玩家：关"),
+                Layout.includePlayersButton(), pressed -> toggleIncludePlayers(),
+                ExportWandTextures.GUI_043,
+                ExportWandTextures.GUI_044,
+                ExportWandTextures.GUI_045,
+                ExportWandTextures.GUI_059,
+                ExportWandTextures.GUI_060,
+                () -> includePlayers));
     }
 
     private void createActionWidgets() {
@@ -333,13 +349,28 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
 
     private void syncOverlayFromMenu() {
         overlayVisible = menu.selection().overlayEnabled();
+        includePlayers = menu.selection().includePlayers();
         updateOverlayButtonText();
+        updateIncludePlayersButtonText();
+    }
+
+    private void toggleIncludePlayers() {
+        includePlayers = !includePlayers;
+        send(new ToggleWandIncludePlayersPayload(includePlayers));
+        updateIncludePlayersButtonText();
     }
 
     private void updateOverlayButtonText() {
         if (overlayButton != null) {
             overlayButton.setMessage(Component.literal(
                     overlayVisible ? "选区显示：开" : "选区显示：关"));
+        }
+    }
+
+    private void updateIncludePlayersButtonText() {
+        if (includePlayersButton != null) {
+            includePlayersButton.setMessage(Component.literal(
+                    includePlayers ? "导出玩家：开" : "导出玩家：关"));
         }
     }
 
@@ -404,11 +435,7 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
     public void containerTick() {
         super.containerTick();
         controller.tick();
-        boolean committed = commitFocusLosses();
-        if (!hasActiveEdit() && !committed) {
-            refreshFromMenu();
-        }
-        syncOverlayFromMenu();
+        commitFocusLosses();
         boolean exporting = controller.state() == ExportWandController.State.EXPORTING;
         boolean nameValid = isNameValid();
         exportButton.active = nameValid && !exporting
@@ -489,7 +516,23 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
                 return true;
             }
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+        super.keyPressed(keyCode, scanCode, modifiers);
+        return true;
+    }
+
+    @Override
+    public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
+        super.keyReleased(keyCode, scanCode, modifiers);
+        return true;
+    }
+
+    @Override
+    public boolean charTyped(char character, int modifiers) {
+        super.charTyped(character, modifiers);
+        return true;
     }
 
     @Override

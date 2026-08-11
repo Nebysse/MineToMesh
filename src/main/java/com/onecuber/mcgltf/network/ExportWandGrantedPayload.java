@@ -13,7 +13,8 @@ public record ExportWandGrantedPayload(
         String exportName,
         BlockPos first,
         BlockPos second,
-        String dimension) implements CustomPacketPayload {
+        String dimension,
+        boolean includePlayers) implements CustomPacketPayload {
     public static final Type<ExportWandGrantedPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(
                     McGltf.MOD_ID, "export_wand_granted"));
@@ -28,6 +29,7 @@ public record ExportWandGrantedPayload(
         buffer.writeBlockPos(payload.first());
         buffer.writeBlockPos(payload.second());
         buffer.writeUtf(payload.dimension());
+        buffer.writeBoolean(payload.includePlayers());
     }
 
     private static ExportWandGrantedPayload decode(FriendlyByteBuf buffer) {
@@ -36,7 +38,8 @@ public record ExportWandGrantedPayload(
                 buffer.readUtf(64),
                 buffer.readBlockPos(),
                 buffer.readBlockPos(),
-                buffer.readUtf());
+                buffer.readUtf(),
+                buffer.readBoolean());
     }
 
     @Override

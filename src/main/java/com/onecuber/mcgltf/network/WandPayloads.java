@@ -38,6 +38,9 @@ public final class WandPayloads {
         registrar.playToServer(ToggleWandOverlayPayload.TYPE,
                 ToggleWandOverlayPayload.STREAM_CODEC,
                 WandPayloads::handleToggleOverlay);
+        registrar.playToServer(ToggleWandIncludePlayersPayload.TYPE,
+                ToggleWandIncludePlayersPayload.STREAM_CODEC,
+                WandPayloads::handleToggleIncludePlayers);
         registrar.playToServer(UpdateWandExportNamePayload.TYPE,
                 UpdateWandExportNamePayload.STREAM_CODEC,
                 WandPayloads::handleUpdateExportName);
@@ -107,6 +110,12 @@ public final class WandPayloads {
                         stack, payload.enabled()));
     }
 
+    private static void handleToggleIncludePlayers(
+            ToggleWandIncludePlayersPayload payload, IPayloadContext context) {
+        withBoundWand(context, (player, stack) ->
+                ExportWandService.INSTANCE.setIncludePlayers(stack, payload.enabled()));
+    }
+
     private static void handleUpdateExportName(
             UpdateWandExportNamePayload payload, IPayloadContext context) {
         withBoundWand(context, (player, stack) -> {
@@ -169,7 +178,8 @@ public final class WandPayloads {
                     payload.exportName(),
                     selection.pos1().orElseThrow(),
                     selection.pos2().orElseThrow(),
-                    selection.selectionDimension().orElseThrow().toString()));
+                    selection.selectionDimension().orElseThrow().toString(),
+                    selection.includePlayers()));
         });
     }
 

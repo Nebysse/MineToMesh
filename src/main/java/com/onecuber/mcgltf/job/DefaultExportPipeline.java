@@ -88,7 +88,7 @@ public final class DefaultExportPipeline {
             Minecraft minecraft,
             Selection selection,
             ExportName name) throws IOException {
-        return create(minecraft, selection, name, new ExportTelemetry());
+        return create(minecraft, selection, name, ExportOptions.DEFAULT, new ExportTelemetry());
     }
 
     public static ExportJob create(
@@ -96,9 +96,19 @@ public final class DefaultExportPipeline {
             Selection selection,
             ExportName name,
             ExportTelemetry telemetry) throws IOException {
+        return create(minecraft, selection, name, ExportOptions.DEFAULT, telemetry);
+    }
+
+    public static ExportJob create(
+            Minecraft minecraft,
+            Selection selection,
+            ExportName name,
+            ExportOptions options,
+            ExportTelemetry telemetry) throws IOException {
         Objects.requireNonNull(minecraft, "minecraft");
         Objects.requireNonNull(selection, "selection");
         Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(options, "options");
         Objects.requireNonNull(telemetry, "telemetry");
         ClientLevel level = Objects.requireNonNull(minecraft.level, "No active client world");
         ExportPlan plan = new WorldPlanner().plan(level, selection);
@@ -108,13 +118,13 @@ public final class DefaultExportPipeline {
             TextureRegistry textures = new TextureRegistry();
             textures.register(PlaceholderFactory.TEXTURE, PlaceholderFactory.textureImage());
             ProductionCaptureSource source = new ProductionCaptureSource(
-                    minecraft, level, plan, textures);
+                    minecraft, level, plan, textures, options);
             AsyncBatchSink sink = new AsyncBatchSink(
                     transaction,
                     textures,
                     name,
                     plan,
-                    rootExtras(minecraft, plan),
+                    rootExtras(minecraft, plan, options),
                     level.getGameTime(),
                     telemetry);
             return new ExportJob(
@@ -125,7 +135,8 @@ public final class DefaultExportPipeline {
         }
     }
 
-    private static Map<String, Object> rootExtras(Minecraft minecraft, ExportPlan plan) {
+    private static Map<String, Object> rootExtras(
+            Minecraft minecraft, ExportPlan plan, ExportOptions options) {
         Selection selection = plan.selection();
         Map<String, Object> extras = new LinkedHashMap<>();
         extras.put("minecraftVersion", "1.21.1");
@@ -146,6 +157,7 @@ public final class DefaultExportPipeline {
                 .toList());
         extras.put("snapshotMode", "rolling_client_snapshot");
         extras.put("formats", List.of("gltf", "obj"));
+        extras.put("includePlayers", options.includePlayers());
         extras.put("sourceTopologyPreservedInObj", true);
         return extras;
     }
@@ -162,6 +174,7 @@ public final class DefaultExportPipeline {
         private final ClientLevel level;
         private final ExportPlan plan;
         private final TextureRegistry textures;
+        private final ExportOptions options;
         private final BlockModelExtractor blocks;
         private final FluidGeometryCapture fluids;
         private final BlockEntityCapture blockEntities;
@@ -172,10 +185,12 @@ public final class DefaultExportPipeline {
                 Minecraft minecraft,
                 ClientLevel level,
                 ExportPlan plan,
-                TextureRegistry textures) {
+                TextureRegistry textures,
+                ExportOptions options) {
             this.level = level;
             this.plan = plan;
             this.textures = textures;
+            this.options = options;
             SpriteTextureExtractor sprites = new SpriteTextureExtractor(minecraft.getResourceManager());
             this.blocks = new BlockModelExtractor(sprites, textures);
             this.fluids = new FluidGeometryCapture(sprites, textures);
@@ -187,7 +202,8 @@ public final class DefaultExportPipeline {
 
         @Override
         public ChunkBatch captureEntities() {
-            EntityCapture.CaptureResult captured = entities.captureAll(level, plan.selection());
+            EntityCapture.CaptureResult captured = entities.captureAll(
+                    level, plan.selection(), options.includePlayers());
             List<Diagnostic> diagnostics = new ArrayList<>(captured.diagnostics());
             diagnostics.addAll(drainMaterialDiagnostics());
             return new ChunkBatch(captured.nodes(), diagnostics, captured.counters());

@@ -41,6 +41,13 @@ class WandPayloadCodecTest {
     }
 
     @Test
+    void playerInclusionUpdateRoundTrips() {
+        ToggleWandIncludePlayersPayload payload = new ToggleWandIncludePlayersPayload(true);
+        assertEquals(payload, roundTrip(
+                ToggleWandIncludePlayersPayload.STREAM_CODEC, payload));
+    }
+
+    @Test
     void exportNameUpdateRoundTrips() {
         UpdateWandExportNamePayload payload =
                 new UpdateWandExportNamePayload("flower_factory");
@@ -59,7 +66,7 @@ class WandPayloadCodecTest {
         ExportWandGrantedPayload payload = new ExportWandGrantedPayload(
                 UUID.fromString("123e4567-e89b-12d3-a456-426614174000"),
                 "flower_factory", new BlockPos(0, 64, 0),
-                new BlockPos(10, 80, 10), "minecraft:overworld");
+                new BlockPos(10, 80, 10), "minecraft:overworld", true);
         assertEquals(payload, roundTrip(ExportWandGrantedPayload.STREAM_CODEC, payload));
     }
 

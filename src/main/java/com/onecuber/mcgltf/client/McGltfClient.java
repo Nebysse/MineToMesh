@@ -43,8 +43,8 @@ public final class McGltfClient {
 
     public McGltfClient(IEventBus modBus) {
         wandController = new ExportWandController(
-                (selection, name, telemetry) -> DefaultExportPipeline.create(
-                        Minecraft.getInstance(), selection, name, telemetry),
+                (selection, name, options, telemetry) -> DefaultExportPipeline.create(
+                        Minecraft.getInstance(), selection, name, options, telemetry),
                 ExportWandController.fromManager(jobManager));
         overlayRenderer = new SelectionOverlayRenderer(
                 new HeldWandOverlaySource());

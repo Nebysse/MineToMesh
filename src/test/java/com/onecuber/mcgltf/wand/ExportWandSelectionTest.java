@@ -33,6 +33,7 @@ class ExportWandSelectionTest {
         assertTrue(empty.pos1().isEmpty());
         assertTrue(empty.pos2().isEmpty());
         assertTrue(empty.overlayEnabled());
+        assertFalse(empty.includePlayers());
         assertEquals("export", empty.exportName());
         assertFalse(empty.isComplete());
         assertTrue(empty.toSelection().isEmpty());
@@ -43,6 +44,7 @@ class ExportWandSelectionTest {
         ExportWandSelection initial = ExportWandSelection.empty()
                 .ensureIdentity(WAND_ID)
                 .withOverlayEnabled(false)
+                .withIncludePlayers(true)
                 .withExportName("flower_factory");
         ExportWandSelection selected = initial.setEndpoint(
                 OVERWORLD, Endpoint.POS1, new BlockPos(1, 64, 2));
@@ -55,6 +57,7 @@ class ExportWandSelectionTest {
         assertTrue(cleared.pos1().isEmpty());
         assertTrue(cleared.pos2().isEmpty());
         assertFalse(cleared.overlayEnabled());
+        assertTrue(cleared.includePlayers());
         assertEquals("flower_factory", cleared.exportName());
     }
 
@@ -89,6 +92,7 @@ class ExportWandSelectionTest {
                 .setEndpoint(OVERWORLD, Endpoint.POS1, new BlockPos(-10, 5, 20))
                 .setEndpoint(OVERWORLD, Endpoint.POS2, new BlockPos(30, 90, -40))
                 .withOverlayEnabled(false)
+                .withIncludePlayers(true)
                 .withExportName("codec_test");
         JsonElement encoded = ExportWandSelection.CODEC
                 .encodeStart(JsonOps.INSTANCE, original).getOrThrow();
@@ -104,6 +108,7 @@ class ExportWandSelectionTest {
                 .setEndpoint(OVERWORLD, Endpoint.POS1, new BlockPos(1, 2, 3))
                 .setEndpoint(OVERWORLD, Endpoint.POS2, new BlockPos(4, 5, 6))
                 .withOverlayEnabled(false)
+                .withIncludePlayers(true)
                 .withExportName("network_test");
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         ExportWandSelection.STREAM_CODEC.encode(buffer, original);
@@ -112,9 +117,18 @@ class ExportWandSelectionTest {
     }
 
     @Test
+    void codecDefaultsMissingPlayerFlagToFalse() {
+        JsonElement oldData = ExportWandSelection.CODEC.encodeStart(JsonOps.INSTANCE,
+                ExportWandSelection.empty()).getOrThrow();
+        ExportWandSelection decoded = ExportWandSelection.CODEC
+                .parse(JsonOps.INSTANCE, oldData).getOrThrow();
+        assertFalse(decoded.includePlayers());
+    }
+
+    @Test
     void constructorRejectsEndpointsWithoutDimension() {
         assertThrows(IllegalArgumentException.class, () -> new ExportWandSelection(
                 Optional.of(WAND_ID), Optional.empty(), Optional.of(BlockPos.ZERO),
-                Optional.empty(), true, "export"));
+                Optional.empty(), true, false, "export"));
     }
 }

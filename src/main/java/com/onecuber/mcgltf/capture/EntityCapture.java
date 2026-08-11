@@ -54,14 +54,15 @@ public final class EntityCapture {
         this.rendererReplay = Objects.requireNonNull(rendererReplay, "rendererReplay");
     }
 
-    public List<Entity> collect(ClientLevel level, Selection selection) {
+    public List<Entity> collect(
+            ClientLevel level, Selection selection, boolean includePlayers) {
         Objects.requireNonNull(level, "level");
         Objects.requireNonNull(selection, "selection");
         AABB bounds = selectionBounds(selection);
         List<Entity> entities = new ArrayList<>(level.getEntities(
                 (Entity) null,
                 bounds,
-                entity -> shouldInclude(category(entity), entity.isRemoved(),
+                entity -> shouldInclude(category(entity), includePlayers, entity.isRemoved(),
                         entity.getBoundingBox(), bounds)));
         entities.sort(Comparator
                 .comparing(EntityCapture::registryId)
@@ -69,11 +70,12 @@ public final class EntityCapture {
         return List.copyOf(entities);
     }
 
-    public CaptureResult captureAll(ClientLevel level, Selection selection) {
+    public CaptureResult captureAll(
+            ClientLevel level, Selection selection, boolean includePlayers) {
         List<CapturedNode> nodes = new ArrayList<>();
         List<Diagnostic> diagnostics = new ArrayList<>();
         BatchCounters counters = BatchCounters.ZERO;
-        for (Entity entity : collect(level, selection)) {
+        for (Entity entity : collect(level, selection, includePlayers)) {
             ObjectResult result = capture(entity, selection);
             result.node().ifPresent(nodes::add);
             diagnostics.addAll(result.diagnostics());
@@ -159,13 +161,14 @@ public final class EntityCapture {
 
     public static boolean shouldInclude(
             EntityCategory category,
+            boolean includePlayers,
             boolean removed,
             AABB entityBounds,
             AABB selectionBounds) {
         Objects.requireNonNull(category, "category");
         Objects.requireNonNull(entityBounds, "entityBounds");
         Objects.requireNonNull(selectionBounds, "selectionBounds");
-        return category != EntityCategory.PLAYER
+        return (includePlayers || category != EntityCategory.PLAYER)
                 && !removed
                 && intersectsInclusive(entityBounds, selectionBounds);
     }
