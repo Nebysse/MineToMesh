@@ -6,6 +6,7 @@ import com.onecuber.mcgltf.client.workstation.OverlayKey;
 import com.onecuber.mcgltf.client.workstation.SelectionOverlayRenderer;
 import com.onecuber.mcgltf.client.workstation.SelectionOverlayState;
 import com.onecuber.mcgltf.client.workstation.WorkstationExportController;
+import com.onecuber.mcgltf.client.wand.WandClientInput;
 import com.onecuber.mcgltf.command.ClientMessages;
 import com.onecuber.mcgltf.command.McGltfCommands;
 import com.onecuber.mcgltf.content.McGltfContent;
@@ -34,6 +35,7 @@ import net.neoforged.neoforge.common.NeoForge;
 public final class McGltfClient {
     private final SelectionStore selectionStore = new SelectionStore();
     private final ExportJobManager jobManager = new ExportJobManager();
+    private final WandClientInput wandInput = new WandClientInput();
     private final WorkstationExportController workstationController;
     private final SelectionOverlayState overlayState = new SelectionOverlayState();
     private final SelectionOverlayRenderer overlayRenderer;
@@ -56,6 +58,7 @@ public final class McGltfClient {
                 (selection, name) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name));
         NeoForge.EVENT_BUS.addListener(commands::onRegisterCommands);
+        NeoForge.EVENT_BUS.addListener(wandInput::onInteractionKey);
         NeoForge.EVENT_BUS.addListener(this::onClientTick);
         NeoForge.EVENT_BUS.addListener(this::onLoggingOut);
         NeoForge.EVENT_BUS.addListener(overlayRenderer::onRenderLevel);
@@ -65,6 +68,7 @@ public final class McGltfClient {
 
     private void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
+        wandInput.tick(minecraft);
         if (minecraft.level != null) {
             String dimension = minecraft.level.dimension().location().toString();
             if (activeDimension != null && !activeDimension.equals(dimension)) {

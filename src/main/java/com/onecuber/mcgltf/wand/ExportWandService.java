@@ -13,6 +13,8 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.ItemStack;
 
 public final class ExportWandService {
+    public static final ExportWandService INSTANCE = new ExportWandService();
+
     public enum Result {
         SUCCESS_POS1,
         SUCCESS_POS2,
