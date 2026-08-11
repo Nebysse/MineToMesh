@@ -1,6 +1,6 @@
 # MineToMesh
 
-MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与 OBJ 场景。0.5.0 使用**导出魔杖**保存和编辑选区，并新增连接纹理、草方块双层侧面与 GUI 输入隔离：服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
+MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与 OBJ 场景。0.5.1 完成 Mod ID、Java 包、资源命名空间、命令与输出目录的硬身份迁移；导出魔杖继续负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
 
 ## 特性
 
@@ -19,8 +19,10 @@ MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户
 ## 安装
 
 1. 安装 Minecraft 1.21.1 与 NeoForge 21.1.244。
-2. 将 `mcgltf-0.5.0.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
+2. 将 `MineToMesh-0.5.1.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
 3. 启动游戏。实际导出文件写在发起操作的玩家客户端。
+
+0.5.1 的运行时 Mod ID 为 `minetomesh`，Java 根包为 `com.nebysse.minetomesh`。客户端与服务端必须使用同一版本。
 
 ## 导出魔杖
 
@@ -70,29 +72,31 @@ S
 - 客户端只接受与当前 `wandId` 和维度匹配的授权；退出世界只清理 Controller 状态，网络回调在进程生命周期内保持安装。
 - 导出期间关闭 GUI 会取消任务并清理事务目录；正常完成的结果不会因关闭 GUI 被删除。
 
-## 0.5.0 迁移警告
+## 0.5.1 硬迁移警告
 
-0.5.0 延续 0.4.0 对区域导出工作台的硬删除：其方块实体、菜单、配方和网络协议均不存在，**不兼容旧存档**中的工作台数据。升级前请备份世界；旧工作台不会转换为导出魔杖。
+0.5.1 将旧 Mod ID `mcgltf` 完整迁移为 `minetomesh`，不提供 Missing Mapping、旧资源兼容壳或 `/mcgltf` 命令别名，因此**不兼容旧存档**中的旧注册项和旧魔杖数据。升级前请备份世界；旧魔杖不会转换为新身份下的魔杖。
+
+旧 `.minecraft/mcgltf-exports/` 目录不会被移动或删除，新导出统一写入 `.minecraft/minetomesh-exports/`。需要旧结果时可直接从旧目录读取。0.5.0 对区域导出工作台的硬删除仍然有效，旧工作台也不会恢复或转换。
 
 ## 指令备用入口
 
 ```text
-/mcgltf pos1
-/mcgltf pos2
-/mcgltf export <名称>
-/mcgltf export <名称> confirm
-/mcgltf status
-/mcgltf cancel
+/minetomesh pos1
+/minetomesh pos2
+/minetomesh export <名称>
+/minetomesh export <名称> confirm
+/minetomesh status
+/minetomesh cancel
 ```
 
-`/mcgltf` 仍作为无需魔杖的备用入口。超过软限制 4,194,304 格时，需要执行聊天中给出的 `confirm` 指令。
+`/minetomesh` 是无需魔杖的备用入口，不保留旧命令别名。超过软限制 4,194,304 格时，需要执行聊天中给出的 `confirm` 指令。
 
 ## 输出
 
-输出根目录为 `.minecraft/mcgltf-exports/`：
+输出根目录为 `.minecraft/minetomesh-exports/`：
 
 ```text
-mcgltf-exports/<名称>/
+minetomesh-exports/<名称>/
 ├─ <名称>.gltf
 ├─ <名称>.bin
 ├─ <名称>.obj
@@ -117,7 +121,7 @@ Flywheel 1.x 等受支持后端会在捕获期间临时进入 CPU 备用渲染�
 ./gradlew.bat runServerSmoke
 Set-Location tools
 npm install
-npm run validate -- ..\run\mcgltf-exports\smoke\smoke.gltf
+npm run validate -- ..\run\minetomesh-exports\smoke\smoke.gltf
 ```
 
 真实模组验收建议使用 Create 6.0.10、Flywheel 1.0.6 与 Touhou Little Maid 1.5.3，分别把 glTF 与 OBJ 导入 Blender 5.2，对比原点、尺度、材质、UV 和拓扑，并用 Khronos Validator 要求 `numErrors: 0`。

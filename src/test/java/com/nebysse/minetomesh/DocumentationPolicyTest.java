@@ -14,7 +14,7 @@ class DocumentationPolicyTest {
     void readmeDocumentsTheWandReleaseAndMigration() throws Exception {
         String readme = read("README.md");
         for (String fragment : List.of(
-                "minetomesh-0.5.1.jar",
+                "MineToMesh-0.5.1.jar",
                 "客户端和服务端",
                 "导出魔杖",
                 "Shift+右键",
@@ -27,12 +27,17 @@ class DocumentationPolicyTest {
                 "selection/grass_side_overlay",
                 "Overlays",
                 "Unicode",
-                "/minetomesh")) {
+                "/minetomesh",
+                "com.nebysse.minetomesh",
+                ".minecraft/minetomesh-exports/",
+                "不提供 Missing Mapping",
+                "旧 `.minecraft/" + "mc" + "gltf-exports/` 目录不会被移动或删除")) {
             assertTrue(readme.contains(fragment),
                     "README must mention: " + fragment);
         }
         assertFalse(readme.contains("制作区域导出工作台"));
         assertFalse(readme.contains("放置区域导出工作台"));
+        assertFalse(readme.contains("/" + "mc" + "gltf pos1"));
     }
 
     @Test
@@ -59,7 +64,13 @@ class DocumentationPolicyTest {
                 "草侧 Overlay 对象",
                 "英文 E 输入",
                 "中文输入法",
-                "关闭后恢复")) {
+                "关闭后恢复",
+                "新 Mod 身份",
+                "旧世界注册项",
+                "旧魔杖数据",
+                "命令切换",
+                "输出目录切换",
+                "双端一致性")) {
             assertTrue(matrix.contains(fragment),
                     "manual matrix must cover: " + fragment);
         }
