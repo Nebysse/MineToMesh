@@ -12,7 +12,7 @@ class McGltfMetadataTest {
     void exposesMineToMeshReleaseIdentity() {
         assertEquals("mcgltf", McGltf.MOD_ID);
         assertEquals("MineToMesh", McGltf.DISPLAY_NAME);
-        assertEquals("0.3.2", McGltf.VERSION);
+        assertEquals("0.4.0", McGltf.VERSION);
     }
 
     @Test
@@ -22,8 +22,8 @@ class McGltfMetadataTest {
                 "/META-INF/neoforge.mods.toml")) {
             metadata = new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
-        assertTrue(metadata.contains("version=\"0.3.2\""));
+        assertTrue(metadata.contains("version=\"0.4.0\""));
         assertFalse(metadata.contains("side=\"CLIENT\""));
-        assertTrue(metadata.contains("Client and server export workstation"));
+        assertTrue(metadata.contains("item-owned export wand"));
     }
 }

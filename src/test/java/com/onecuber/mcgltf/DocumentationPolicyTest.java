@@ -1,5 +1,6 @@
 package com.onecuber.mcgltf;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -10,50 +11,57 @@ import org.junit.jupiter.api.Test;
 
 class DocumentationPolicyTest {
     @Test
-    void readmeDocumentsReleaseAndWorkstation() throws Exception {
-        String readme = Files.readString(
-                projectRoot().resolve("README.md"), StandardCharsets.UTF_8);
-        List<String> required = List.of(
-                "mcgltf-0.3.2.jar",
+    void readmeDocumentsTheWandReleaseAndMigration() throws Exception {
+        String readme = read("README.md");
+        for (String fragment : List.of(
+                "mcgltf-0.4.0.jar",
                 "客户端和服务端",
-                "区域导出工作台",
-                "关闭 GUI 会取消",
-                "铁锭",
-                "玻璃板",
-                "红石",
-                "制图台",
-                "/mcgltf");
-        for (String fragment : required) {
+                "导出魔杖",
+                "Shift+右键",
+                "Shift+左键空气",
+                "紫水晶碎片",
+                "铜锭",
+                "权限等级 2",
+                "不兼容旧存档",
+                "/mcgltf")) {
             assertTrue(readme.contains(fragment),
                     "README must mention: " + fragment);
         }
+        assertFalse(readme.contains("制作区域导出工作台"));
+        assertFalse(readme.contains("放置区域导出工作台"));
     }
 
     @Test
-    void manualMatrixCoversWorkstationChecks() throws Exception {
-        String matrix = Files.readString(
-                projectRoot().resolve("docs/testing/manual-client-matrix.md"),
-                StandardCharsets.UTF_8);
-        List<String> required = List.of(
-                "区域导出工作台",
-                "GUI Scale 2/3/4",
-                "两名玩家",
-                "深度遮挡",
-                "方块拆除",
-                "关闭即取消",
-                "专用服务器",
-                "Create",
-                "女仆",
-                "Blender");
-        for (String fragment : required) {
+    void manualMatrixCoversTheExactWandClosure() throws Exception {
+        String matrix = read("docs/testing/manual-client-matrix.md");
+        for (String fragment : List.of(
+                "无裂纹左键",
+                "容器安全右键",
+                "Shift+右键方块",
+                "Shift+右键空气",
+                "Shift+左键空气清除",
+                "跨维度拒绝",
+                "双魔杖隔离",
+                "Overlay 隐藏与恢复",
+                "移动魔杖使菜单失效",
+                "重连授权生命周期",
+                "普通玩家",
+                "管理员",
+                "单人模式",
+                "glTF",
+                "OBJ",
+                "Blender")) {
             assertTrue(matrix.contains(fragment),
                     "manual matrix must cover: " + fragment);
         }
     }
 
+    private static String read(String relative) throws Exception {
+        return Files.readString(projectRoot().resolve(relative),
+                StandardCharsets.UTF_8);
+    }
+
     private static Path projectRoot() {
-        return Path.of(System.getProperty("user.dir"))
-                .getParent()
-                .getParent();
+        return Path.of(System.getProperty("user.dir")).getParent().getParent();
     }
 }

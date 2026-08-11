@@ -8,7 +8,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="OneCuber"
 description='''
-Client and server export workstation with client-side Blender-ready glTF and OBJ capture.
+Client and server item-owned export wand with client-side Blender-ready glTF and OBJ capture.
 '''
 
 [[dependencies.${mod_id}]]
