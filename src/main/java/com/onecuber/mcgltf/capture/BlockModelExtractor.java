@@ -68,11 +68,13 @@ public final class BlockModelExtractor {
             ClientLevel level,
             BlockPos position,
             Selection selection,
-            PrimitiveAccumulator sectionAccumulator) {
+            PrimitiveAccumulator sectionAccumulator,
+            PrimitiveAccumulator overlayAccumulator) {
         Objects.requireNonNull(level, "level");
         Objects.requireNonNull(position, "position");
         Objects.requireNonNull(selection, "selection");
         Objects.requireNonNull(sectionAccumulator, "sectionAccumulator");
+        Objects.requireNonNull(overlayAccumulator, "overlayAccumulator");
         BlockState state = level.getBlockState(position);
         if (state.isAir() || state.getRenderShape() != RenderShape.MODEL) {
             return new CaptureResult(CaptureState.EMPTY, BatchCounters.ZERO, List.of());
@@ -126,7 +128,10 @@ public final class BlockModelExtractor {
         }
 
         for (PendingStream stream : pending) {
-            sectionAccumulator.append(stream.material(), stream.mode(), stream.vertices());
+            PrimitiveAccumulator target = stream.route()
+                    == BlockPrimitiveRouter.Route.GLOBAL_GRASS_SIDE_OVERLAY
+                    ? overlayAccumulator : sectionAccumulator;
+            target.append(stream.material(), stream.mode(), stream.vertices());
         }
         BatchCounters counters = pending.isEmpty()
                 ? BatchCounters.ZERO
@@ -199,7 +204,11 @@ public final class BlockModelExtractor {
                     normalizedUvs.get(index),
                     vertex.color()));
         }
-        return new PendingStream(material, descriptor.primitiveMode(), vertices);
+        return new PendingStream(
+                material,
+                descriptor.primitiveMode(),
+                vertices,
+                BlockPrimitiveRouter.route(texture.key()));
     }
 
     private SpriteTextureExtractor.Extraction extraction(
@@ -288,7 +297,8 @@ public final class BlockModelExtractor {
     private record PendingStream(
             MaterialKey material,
             com.onecuber.mcgltf.scene.PrimitiveMode mode,
-            List<Vertex> vertices) {
+            List<Vertex> vertices,
+            BlockPrimitiveRouter.Route route) {
     }
 
     public record CaptureResult(

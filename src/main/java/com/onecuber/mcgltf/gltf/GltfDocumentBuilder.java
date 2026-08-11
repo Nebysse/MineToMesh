@@ -256,6 +256,8 @@ public final class GltfDocumentBuilder {
             case BLOCK_ENTITY -> BLOCK_ENTITIES_ROOT;
             case ENTITY -> ENTITIES_ROOT;
             case PLACEHOLDER -> PLACEHOLDERS_ROOT;
+            case OVERLAY -> throw new IllegalArgumentException(
+                    "Overlay hierarchy has not been initialized");
         }).getAsJsonObject();
     }
 

@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.onecuber.mcgltf.McGltf;
 import com.onecuber.mcgltf.capture.BlockEntityCapture;
 import com.onecuber.mcgltf.capture.BlockModelExtractor;
+import com.onecuber.mcgltf.capture.BlockPrimitiveRouter;
 import com.onecuber.mcgltf.capture.CaptureState;
 import com.onecuber.mcgltf.capture.EntityCapture;
 import com.onecuber.mcgltf.capture.FluidGeometryCapture;
@@ -231,6 +232,7 @@ public final class DefaultExportPipeline {
         private final class SectionCursor implements ExportJob.SectionCapture {
             private final ExportPlan.SectionWork work;
             private final PrimitiveAccumulator accumulator;
+            private final PrimitiveAccumulator overlayAccumulator;
             private final List<CapturedNode> nodes = new ArrayList<>();
             private final List<Diagnostic> diagnostics = new ArrayList<>();
             private BatchCounters counters = BatchCounters.ZERO;
@@ -239,6 +241,8 @@ public final class DefaultExportPipeline {
             private SectionCursor(ExportPlan.SectionWork work) {
                 this.work = work;
                 this.accumulator = new PrimitiveAccumulator(objectId());
+                this.overlayAccumulator = new PrimitiveAccumulator(
+                        BlockPrimitiveRouter.OVERLAY_OBJECT_NAME);
             }
 
             @Override
@@ -258,7 +262,7 @@ public final class DefaultExportPipeline {
                 counters = counters.plus(new BatchCounters(1, 0, 0, 0, 0, 0, 0, 0, 0));
 
                 BlockModelExtractor.CaptureResult block = blocks.capture(
-                        level, position, plan.selection(), accumulator);
+                        level, position, plan.selection(), accumulator, overlayAccumulator);
                 counters = counters.plus(block.counters());
                 diagnostics.addAll(block.diagnostics());
 
@@ -298,7 +302,9 @@ public final class DefaultExportPipeline {
             @Override
             public ChunkBatch finish() {
                 PrimitiveAccumulator.SealResult sealed = accumulator.seal();
+                PrimitiveAccumulator.SealResult overlaySealed = overlayAccumulator.seal();
                 diagnostics.addAll(sealed.diagnostics());
+                diagnostics.addAll(overlaySealed.diagnostics());
                 diagnostics.addAll(drainMaterialDiagnostics());
                 if (!sealed.primitives().isEmpty()) {
                     nodes.addFirst(new CapturedNode(
@@ -309,6 +315,16 @@ public final class DefaultExportPipeline {
                                     "chunkX", work.section().chunkX(),
                                     "chunkZ", work.section().chunkZ(),
                                     "sectionY", work.section().sectionY())));
+                }
+                if (!overlaySealed.primitives().isEmpty()) {
+                    nodes.add(new CapturedNode(
+                            BlockPrimitiveRouter.OVERLAY_OBJECT_NAME,
+                            CapturedNode.Kind.OVERLAY,
+                            overlaySealed.primitives(),
+                            Map.of(
+                                    "layerRole", "grass_side_overlay",
+                                    "scope", "selection",
+                                    "sourceTexture", BlockPrimitiveRouter.GRASS_SIDE_OVERLAY_ID)));
                 }
                 return new ChunkBatch(nodes, diagnostics, counters);
             }
