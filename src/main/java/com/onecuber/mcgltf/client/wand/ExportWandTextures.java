@@ -7,7 +7,7 @@ import java.util.Objects;
 import net.minecraft.resources.ResourceLocation;
 
 /** Individual production textures imported verbatim from the approved slices-1x set. */
-public class ExportWandTextures {
+public final class ExportWandTextures {
     public record Texture(ResourceLocation location, int width, int height) {
         public Texture {
             Objects.requireNonNull(location, "location");
@@ -122,11 +122,6 @@ public class ExportWandTextures {
         return new Texture(ResourceLocation.fromNamespaceAndPath(McGltf.MOD_ID, path), width, height);
     }
 
-    protected ExportWandTextures() {
-    }
-}
-
-final class WorkstationTextures extends ExportWandTextures {
-    private WorkstationTextures() {
+    private ExportWandTextures() {
     }
 }

@@ -1,6 +1,6 @@
 package com.onecuber.mcgltf.client.wand;
 
-public class ExportWandBorderPolicy {
+public final class ExportWandBorderPolicy {
     public static int logicalBorder(
             int physicalPixels, double guiScale,
             int sourceWidth, int sourceHeight,
@@ -24,11 +24,6 @@ public class ExportWandBorderPolicy {
         return Math.min(target, Math.max(0, safeMaximum));
     }
 
-    protected ExportWandBorderPolicy() {
-    }
-}
-
-final class WorkstationBorderPolicy extends ExportWandBorderPolicy {
-    private WorkstationBorderPolicy() {
+    private ExportWandBorderPolicy() {
     }
 }
