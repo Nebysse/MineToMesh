@@ -6,6 +6,7 @@ import com.onecuber.mcgltf.client.workstation.OverlayKey;
 import com.onecuber.mcgltf.client.workstation.SelectionOverlayRenderer;
 import com.onecuber.mcgltf.client.workstation.SelectionOverlayState;
 import com.onecuber.mcgltf.client.workstation.WorkstationExportController;
+import com.onecuber.mcgltf.client.wand.ExportWandController;
 import com.onecuber.mcgltf.client.wand.WandClientInput;
 import com.onecuber.mcgltf.command.ClientMessages;
 import com.onecuber.mcgltf.command.McGltfCommands;
@@ -14,6 +15,7 @@ import com.onecuber.mcgltf.job.DefaultExportPipeline;
 import com.onecuber.mcgltf.job.ExportJob;
 import com.onecuber.mcgltf.job.ExportJobManager;
 import com.onecuber.mcgltf.job.ManagedJob;
+import com.onecuber.mcgltf.network.WandClientReceiver;
 import com.onecuber.mcgltf.network.WorkstationClientReceiver;
 import com.onecuber.mcgltf.workstation.ExportWorkstationMenu;
 import com.onecuber.mcgltf.world.SelectionStore;
@@ -37,6 +39,7 @@ public final class McGltfClient {
     private final ExportJobManager jobManager = new ExportJobManager();
     private final WandClientInput wandInput = new WandClientInput();
     private final WorkstationExportController workstationController;
+    private final ExportWandController wandController;
     private final SelectionOverlayState overlayState = new SelectionOverlayState();
     private final SelectionOverlayRenderer overlayRenderer;
     private final McGltfCommands commands;
@@ -51,9 +54,14 @@ public final class McGltfClient {
                         name,
                         telemetry),
                 WorkstationExportController.fromManager(jobManager));
+        wandController = new ExportWandController(
+                (selection, name, telemetry) -> DefaultExportPipeline.create(
+                        Minecraft.getInstance(), selection, name, telemetry),
+                ExportWandController.fromManager(jobManager));
         overlayRenderer = new SelectionOverlayRenderer(overlayState);
         WorkstationClientReceiver.install(
                 workstationController::accept, workstationController::reject);
+        WandClientReceiver.install(wandController::accept, wandController::reject);
         commands = new McGltfCommands(selectionStore, jobManager,
                 (selection, name) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name));
@@ -123,6 +131,7 @@ public final class McGltfClient {
         overlayState.clear();
         jobManager.cancel("logout");
         workstationController.unbind();
+        wandController.unbind();
     }
 
     private void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {

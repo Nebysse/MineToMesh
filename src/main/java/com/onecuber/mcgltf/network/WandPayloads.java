@@ -1,11 +1,15 @@
 package com.onecuber.mcgltf.network;
 
+import com.onecuber.mcgltf.content.McGltfContent;
 import com.onecuber.mcgltf.output.ExportName;
 import com.onecuber.mcgltf.wand.ExportWandMenu;
+import com.onecuber.mcgltf.wand.ExportWandSelection;
 import com.onecuber.mcgltf.wand.ExportWandService;
+import java.util.UUID;
 import java.util.function.BiConsumer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -33,6 +37,15 @@ public final class WandPayloads {
         registrar.playToServer(UpdateWandExportNamePayload.TYPE,
                 UpdateWandExportNamePayload.STREAM_CODEC,
                 WandPayloads::handleUpdateExportName);
+        registrar.playToServer(ExportWandRequestPayload.TYPE,
+                ExportWandRequestPayload.STREAM_CODEC,
+                WandPayloads::handleExportRequest);
+        registrar.playToClient(ExportWandGrantedPayload.TYPE,
+                ExportWandGrantedPayload.STREAM_CODEC,
+                (payload, context) -> WandClientReceiver.receive(payload));
+        registrar.playToClient(ExportWandRejectedPayload.TYPE,
+                ExportWandRejectedPayload.STREAM_CODEC,
+                (payload, context) -> WandClientReceiver.receive(payload));
     }
 
     private static void handleClearSelection(
@@ -77,6 +90,66 @@ public final class WandPayloads {
                 // Invalid drafts remain client-local and never mutate the component.
             }
         });
+    }
+
+    private static void handleExportRequest(
+            ExportWandRequestPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)
+                    || !(player.containerMenu instanceof ExportWandMenu menu)) {
+                return;
+            }
+            UUID wandId = menu.binding().wandId();
+            ItemStack stack = menu.resolveBoundStack(player).orElse(null);
+            if (stack == null) {
+                sendReject(player, wandId, "mcgltf.error.wand.invalid_binding");
+                return;
+            }
+            ExportWandSelection selection = stack.getOrDefault(
+                    McGltfContent.EXPORT_WAND_SELECTION.get(),
+                    ExportWandSelection.empty());
+            WandRequestPolicy.Validation validation =
+                    WandRequestPolicy.validateExportPermission(
+                            player.getServer().isSingleplayer(),
+                            player.createCommandSourceStack().hasPermission(2));
+            if (!validation.accepted()) {
+                sendReject(player, wandId, validation.reasonKey());
+                return;
+            }
+            validation = WandRequestPolicy.validateExportName(payload.exportName());
+            if (!validation.accepted()) {
+                sendReject(player, wandId, validation.reasonKey());
+                return;
+            }
+            validation = WandRequestPolicy.validateSelection(
+                    selection,
+                    player.level().getMinBuildHeight(),
+                    player.level().getMaxBuildHeight());
+            if (!validation.accepted()) {
+                sendReject(player, wandId, validation.reasonKey());
+                return;
+            }
+            validation = WandRequestPolicy.validateDimension(
+                    selection, player.level().dimension().location());
+            if (!validation.accepted()) {
+                sendReject(player, wandId, validation.reasonKey());
+                return;
+            }
+            ExportWandService.INSTANCE.setExportName(
+                    stack, ExportName.parse(payload.exportName()).value());
+            PacketDistributor.sendToPlayer(player, new ExportWandGrantedPayload(
+                    wandId,
+                    payload.exportName(),
+                    selection.pos1().orElseThrow(),
+                    selection.pos2().orElseThrow(),
+                    selection.selectionDimension().orElseThrow().toString()));
+        });
+    }
+
+    private static void sendReject(
+            ServerPlayer player, UUID wandId, String reasonKey) {
+        PacketDistributor.sendToPlayer(
+                player, new ExportWandRejectedPayload(wandId, reasonKey));
     }
 
     private static void withBoundWand(
