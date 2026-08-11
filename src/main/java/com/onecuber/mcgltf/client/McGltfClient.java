@@ -1,12 +1,11 @@
 package com.onecuber.mcgltf.client;
 
 import com.onecuber.mcgltf.McGltf;
-import com.onecuber.mcgltf.client.workstation.ExportWorkstationScreen;
 import com.onecuber.mcgltf.client.workstation.OverlayKey;
-import com.onecuber.mcgltf.client.workstation.SelectionOverlayRenderer;
-import com.onecuber.mcgltf.client.workstation.SelectionOverlayState;
 import com.onecuber.mcgltf.client.workstation.WorkstationExportController;
 import com.onecuber.mcgltf.client.wand.ExportWandController;
+import com.onecuber.mcgltf.client.wand.HeldWandOverlaySource;
+import com.onecuber.mcgltf.client.wand.SelectionOverlayRenderer;
 import com.onecuber.mcgltf.client.wand.ExportWandScreen;
 import com.onecuber.mcgltf.client.wand.WandClientInput;
 import com.onecuber.mcgltf.command.ClientMessages;
@@ -19,7 +18,6 @@ import com.onecuber.mcgltf.job.ManagedJob;
 import com.onecuber.mcgltf.network.WandClientReceiver;
 import com.onecuber.mcgltf.network.WorkstationClientReceiver;
 import com.onecuber.mcgltf.wand.ExportWandMenu;
-import com.onecuber.mcgltf.workstation.ExportWorkstationMenu;
 import com.onecuber.mcgltf.world.SelectionStore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -42,7 +40,6 @@ public final class McGltfClient {
     private final WandClientInput wandInput = new WandClientInput();
     private final WorkstationExportController workstationController;
     private final ExportWandController wandController;
-    private final SelectionOverlayState overlayState = new SelectionOverlayState();
     private final SelectionOverlayRenderer overlayRenderer;
     private final McGltfCommands commands;
     private String activeDimension;
@@ -60,7 +57,8 @@ public final class McGltfClient {
                 (selection, name, telemetry) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name, telemetry),
                 ExportWandController.fromManager(jobManager));
-        overlayRenderer = new SelectionOverlayRenderer(overlayState);
+        overlayRenderer = new SelectionOverlayRenderer(
+                new HeldWandOverlaySource());
         WorkstationClientReceiver.install(
                 workstationController::accept, workstationController::reject);
         WandClientReceiver.install(wandController::accept, wandController::reject);
@@ -83,7 +81,6 @@ public final class McGltfClient {
             String dimension = minecraft.level.dimension().location().toString();
             if (activeDimension != null && !activeDimension.equals(dimension)) {
                 selectionStore.clear();
-                overlayState.dimensionChanged(dimension);
                 jobManager.cancel("dimension_change");
             }
             activeDimension = dimension;
@@ -113,18 +110,6 @@ public final class McGltfClient {
     }
 
     private void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
-        event.register(McGltfContent.EXPORT_WORKSTATION_MENU.get(),
-                new MenuScreens.ScreenConstructor<ExportWorkstationMenu, ExportWorkstationScreen>() {
-                    @Override
-                    public ExportWorkstationScreen create(
-                            ExportWorkstationMenu menu,
-                            Inventory inventory,
-                            Component title) {
-                        return new ExportWorkstationScreen(
-                                menu, inventory, title,
-                                workstationController, overlayState);
-                    }
-                });
         event.register(McGltfContent.EXPORT_WAND_MENU.get(),
                 new MenuScreens.ScreenConstructor<ExportWandMenu, ExportWandScreen>() {
                     @Override
@@ -141,7 +126,6 @@ public final class McGltfClient {
     private void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         selectionStore.clear();
         activeDimension = null;
-        overlayState.clear();
         jobManager.cancel("logout");
         workstationController.unbind();
         wandController.unbind();
