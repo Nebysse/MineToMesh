@@ -25,7 +25,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.world.entity.player.Inventory;
-import org.lwjgl.glfw.GLFW;
 
 public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
     private static final int ORANGE = 0xFFED741C;
@@ -500,38 +499,69 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         }
     }
 
+    private EditBox focusedEditBox() {
+        if (nameField != null && nameField.isFocused()) {
+            return nameField;
+        }
+        for (EditBox field : coordinateFields) {
+            if (field.isFocused()) {
+                return field;
+            }
+        }
+        return null;
+    }
+
+    private void commitFocusedEditBox() {
+        for (int index = 0; index < coordinateFields.size(); index++) {
+            if (coordinateFields.get(index).isFocused()) {
+                commitEndpoint(endpoint(index));
+                return;
+            }
+        }
+        if (nameField != null && nameField.isFocused() && isNameValid()) {
+            commitExportName();
+        }
+    }
+
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            for (int index = 0; index < coordinateFields.size(); index++) {
-                if (coordinateFields.get(index).isFocused()) {
-                    commitEndpoint(endpoint(index));
-                    return true;
-                }
+        EditBox editor = focusedEditBox();
+        return switch (WandKeyboardPolicy.keyPressed(keyCode, editor != null)) {
+            case CLOSE -> {
+                onClose();
+                yield true;
             }
-            if (nameField.isFocused()) {
-                if (isNameValid()) {
-                    commitExportName();
-                }
-                return true;
+            case COMMIT -> {
+                commitFocusedEditBox();
+                yield true;
             }
-        }
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            return super.keyPressed(keyCode, scanCode, modifiers);
-        }
-        super.keyPressed(keyCode, scanCode, modifiers);
-        return true;
+            case MOVE_FOCUS -> {
+                super.keyPressed(keyCode, scanCode, modifiers);
+                yield true;
+            }
+            case FORWARD_TO_EDITOR -> {
+                editor.keyPressed(keyCode, scanCode, modifiers);
+                yield true;
+            }
+            case CONSUME -> true;
+        };
     }
 
     @Override
     public boolean keyReleased(int keyCode, int scanCode, int modifiers) {
-        super.keyReleased(keyCode, scanCode, modifiers);
+        EditBox editor = focusedEditBox();
+        if (editor != null) {
+            editor.keyReleased(keyCode, scanCode, modifiers);
+        }
         return true;
     }
 
     @Override
     public boolean charTyped(char character, int modifiers) {
-        super.charTyped(character, modifiers);
+        EditBox editor = focusedEditBox();
+        if (editor != null) {
+            editor.charTyped(character, modifiers);
+        }
         return true;
     }
 
