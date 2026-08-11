@@ -61,7 +61,8 @@ class GltfDocumentBuilderTest {
         assertEquals("BlockEntities", nodes.get(1).getAsJsonObject().get("name").getAsString());
         assertEquals("Entities", nodes.get(2).getAsJsonObject().get("name").getAsString());
         assertEquals("Placeholders", nodes.get(3).getAsJsonObject().get("name").getAsString());
-        assertEquals(4, nodes.get(0).getAsJsonObject().getAsJsonArray("children").get(0).getAsInt());
+        assertEquals("Overlays", nodes.get(4).getAsJsonObject().get("name").getAsString());
+        assertEquals(5, nodes.get(0).getAsJsonObject().getAsJsonArray("children").get(0).getAsInt());
 
         JsonObject meshPrimitive = document.getAsJsonArray("meshes").get(0).getAsJsonObject()
                 .getAsJsonArray("primitives").get(0).getAsJsonObject();

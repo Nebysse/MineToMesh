@@ -19,6 +19,7 @@ public final class GltfDocumentBuilder {
     private static final int BLOCK_ENTITIES_ROOT = 1;
     private static final int ENTITIES_ROOT = 2;
     private static final int PLACEHOLDERS_ROOT = 3;
+    private static final int OVERLAYS_ROOT = 4;
 
     private final String bufferUri;
     private final Map<String, Object> rootExtras;
@@ -35,6 +36,8 @@ public final class GltfDocumentBuilder {
     private final Map<TextureKey, Integer> imageIndices = new LinkedHashMap<>();
     private final Map<TextureBinding, Integer> textureIndices = new LinkedHashMap<>();
     private final Map<MaterialKey, Integer> materialIndices = new LinkedHashMap<>();
+    private final Map<String, CapturedNode.Kind> logicalKinds = new LinkedHashMap<>();
+    private final Map<String, MergedNode> overlayNodes = new LinkedHashMap<>();
     private boolean finished;
 
     public GltfDocumentBuilder(String bufferUri, Map<String, Object> rootExtras) {
@@ -44,9 +47,10 @@ public final class GltfDocumentBuilder {
         addHierarchyRoot("BlockEntities");
         addHierarchyRoot("Entities");
         addHierarchyRoot("Placeholders");
+        addHierarchyRoot("Overlays");
     }
 
-    public void addNode(CapturedNode capturedNode, List<WrittenPrimitive> writtenPrimitives) {
+    public boolean addNode(CapturedNode capturedNode, List<WrittenPrimitive> writtenPrimitives) {
         requireOpen();
         Objects.requireNonNull(capturedNode, "capturedNode");
         List<WrittenPrimitive> written = List.copyOf(writtenPrimitives);
@@ -54,19 +58,57 @@ public final class GltfDocumentBuilder {
             throw new IllegalArgumentException("Written primitive count must match captured primitive count");
         }
         if (written.isEmpty()) {
-            return;
+            return false;
         }
 
+        CapturedNode.Kind existingKind = logicalKinds.putIfAbsent(
+                capturedNode.name(), capturedNode.kind());
+        if (existingKind != null && existingKind != capturedNode.kind()) {
+            throw new IllegalArgumentException(
+                    "Node name is already bound to " + existingKind + ": " + capturedNode.name());
+        }
+
+        if (capturedNode.kind() == CapturedNode.Kind.OVERLAY) {
+            MergedNode existing = overlayNodes.get(capturedNode.name());
+            if (existing != null && !existing.extras().equals(capturedNode.extras())) {
+                throw new IllegalArgumentException(
+                        "Overlay fragments must have identical extras: " + capturedNode.name());
+            }
+            JsonArray primitiveJson = primitives(written);
+            if (existing != null) {
+                primitiveJson.forEach(existing.primitives()::add);
+                return false;
+            }
+            int meshIndex = addMesh(capturedNode.name(), primitiveJson);
+            int nodeIndex = addCapturedNode(capturedNode, meshIndex);
+            overlayNodes.put(capturedNode.name(), new MergedNode(
+                    primitiveJson, Map.copyOf(capturedNode.extras()), nodeIndex, meshIndex));
+            return true;
+        }
+
+        int meshIndex = addMesh(capturedNode.name(), primitives(written));
+        addCapturedNode(capturedNode, meshIndex);
+        return true;
+    }
+
+    private JsonArray primitives(List<WrittenPrimitive> written) {
         JsonArray primitiveJson = new JsonArray();
         for (WrittenPrimitive primitive : written) {
             primitiveJson.add(addPrimitive(primitive));
         }
+        return primitiveJson;
+    }
+
+    private int addMesh(String name, JsonArray primitiveJson) {
         JsonObject mesh = new JsonObject();
-        mesh.addProperty("name", capturedNode.name());
+        mesh.addProperty("name", name);
         mesh.add("primitives", primitiveJson);
         int meshIndex = meshes.size();
         meshes.add(mesh);
+        return meshIndex;
+    }
 
+    private int addCapturedNode(CapturedNode capturedNode, int meshIndex) {
         JsonObject node = new JsonObject();
         node.addProperty("name", capturedNode.name());
         node.addProperty("mesh", meshIndex);
@@ -76,6 +118,7 @@ public final class GltfDocumentBuilder {
         int nodeIndex = nodes.size();
         nodes.add(node);
         hierarchyRoot(capturedNode.kind()).getAsJsonArray("children").add(nodeIndex);
+        return nodeIndex;
     }
 
     public JsonObject finish(long binaryByteLength) {
@@ -99,6 +142,7 @@ public final class GltfDocumentBuilder {
         rootNodes.add(BLOCK_ENTITIES_ROOT);
         rootNodes.add(ENTITIES_ROOT);
         rootNodes.add(PLACEHOLDERS_ROOT);
+        rootNodes.add(OVERLAYS_ROOT);
         scene.add("nodes", rootNodes);
         JsonArray scenes = new JsonArray();
         scenes.add(scene);
@@ -256,8 +300,7 @@ public final class GltfDocumentBuilder {
             case BLOCK_ENTITY -> BLOCK_ENTITIES_ROOT;
             case ENTITY -> ENTITIES_ROOT;
             case PLACEHOLDER -> PLACEHOLDERS_ROOT;
-            case OVERLAY -> throw new IllegalArgumentException(
-                    "Overlay hierarchy has not been initialized");
+            case OVERLAY -> OVERLAYS_ROOT;
         }).getAsJsonObject();
     }
 
@@ -273,6 +316,13 @@ public final class GltfDocumentBuilder {
         if (finished) {
             throw new IllegalStateException("glTF document is already finished");
         }
+    }
+
+    private record MergedNode(
+            JsonArray primitives,
+            Map<String, Object> extras,
+            int nodeIndex,
+            int meshIndex) {
     }
 
     private record TextureBinding(TextureKey texture, MaterialKey.SamplerMode sampler) {
