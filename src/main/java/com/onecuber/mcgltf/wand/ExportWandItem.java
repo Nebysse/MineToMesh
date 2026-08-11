@@ -46,11 +46,24 @@ public final class ExportWandItem extends Item {
     public InteractionResultHolder<ItemStack> use(
             Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (!player.isSecondaryUseActive()) {
-            return InteractionResultHolder.pass(stack);
+        if (player.isSecondaryUseActive()) {
+            openMenu(player, hand);
+            return InteractionResultHolder.sidedSuccess(
+                    stack, level.isClientSide());
         }
-        openMenu(player, hand);
-        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+        if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
+            ExportWandService.Result result = ExportWandService.INSTANCE.setEndpoint(
+                    stack,
+                    level.dimension().location(),
+                    Endpoint.POS2,
+                    WandAirTarget.twoBlocksAhead(
+                            player.getEyePosition(), player.getLookAngle()),
+                    level.getMinBuildHeight(),
+                    level.getMaxBuildHeight());
+            ExportWandService.INSTANCE.playFeedback(serverPlayer, result);
+        }
+        return InteractionResultHolder.sidedSuccess(
+                stack, level.isClientSide());
     }
 
     private static void openMenu(Player player, InteractionHand hand) {

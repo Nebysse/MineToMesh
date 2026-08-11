@@ -20,6 +20,14 @@ class WandPayloadCodecTest {
     }
 
     @Test
+    void airEndpointRequestRoundTripsHandAndEndpoint() {
+        SetWandAirEndpointPayload payload = new SetWandAirEndpointPayload(
+                InteractionHand.MAIN_HAND, Endpoint.POS1);
+        assertEquals(payload, roundTrip(
+                SetWandAirEndpointPayload.STREAM_CODEC, payload));
+    }
+
+    @Test
     void endpointUpdateRoundTripsCompleteEndpoint() {
         UpdateWandEndpointPayload payload = new UpdateWandEndpointPayload(
                 Endpoint.POS2, new BlockPos(-12, 80, 42));

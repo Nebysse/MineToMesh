@@ -30,13 +30,13 @@ public final class WandInteractionPolicy {
         if (button == Button.RIGHT && shift) {
             return Action.OPEN_GUI;
         }
-        if (button == Button.LEFT && target == Target.BLOCK) {
-            return Action.SET_POS1;
-        }
-        if (button == Button.LEFT && shift) {
+        if (button == Button.LEFT && shift && target == Target.AIR) {
             return Action.CLEAR;
         }
-        if (button == Button.RIGHT && target == Target.BLOCK) {
+        if (button == Button.LEFT) {
+            return Action.SET_POS1;
+        }
+        if (button == Button.RIGHT) {
             return Action.SET_POS2;
         }
         return Action.PASS;

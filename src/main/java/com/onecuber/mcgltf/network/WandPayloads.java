@@ -4,6 +4,7 @@ import com.onecuber.mcgltf.content.McGltfContent;
 import com.onecuber.mcgltf.output.ExportName;
 import com.onecuber.mcgltf.wand.ExportWandMenu;
 import com.onecuber.mcgltf.wand.ExportWandSelection;
+import com.onecuber.mcgltf.wand.WandAirTarget;
 import com.onecuber.mcgltf.wand.ExportWandService;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -28,6 +29,9 @@ public final class WandPayloads {
         registrar.playToServer(ClearWandSelectionPayload.TYPE,
                 ClearWandSelectionPayload.STREAM_CODEC,
                 WandPayloads::handleClearSelection);
+        registrar.playToServer(SetWandAirEndpointPayload.TYPE,
+                SetWandAirEndpointPayload.STREAM_CODEC,
+                WandPayloads::handleAirEndpoint);
         registrar.playToServer(UpdateWandEndpointPayload.TYPE,
                 UpdateWandEndpointPayload.STREAM_CODEC,
                 WandPayloads::handleUpdateEndpoint);
@@ -57,6 +61,29 @@ public final class WandPayloads {
             ItemStack stack = player.getItemInHand(payload.hand());
             ExportWandService.Result result =
                     ExportWandService.INSTANCE.clearSelection(stack);
+            ExportWandService.INSTANCE.playFeedback(player, result);
+        });
+    }
+
+    private static void handleAirEndpoint(
+            SetWandAirEndpointPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) {
+                return;
+            }
+            ItemStack stack = player.getItemInHand(payload.hand());
+            if (!stack.is(McGltfContent.EXPORT_WAND_ITEM.get())) {
+                return;
+            }
+            ExportWandService.Result result =
+                    ExportWandService.INSTANCE.setEndpoint(
+                            stack,
+                            player.level().dimension().location(),
+                            payload.endpoint(),
+                            WandAirTarget.twoBlocksAhead(
+                                    player.getEyePosition(), player.getLookAngle()),
+                            player.level().getMinBuildHeight(),
+                            player.level().getMaxBuildHeight());
             ExportWandService.INSTANCE.playFeedback(player, result);
         });
     }

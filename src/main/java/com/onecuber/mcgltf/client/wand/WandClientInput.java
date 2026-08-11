@@ -1,6 +1,8 @@
 package com.onecuber.mcgltf.client.wand;
 
 import com.onecuber.mcgltf.network.ClearWandSelectionPayload;
+import com.onecuber.mcgltf.network.SetWandAirEndpointPayload;
+import com.onecuber.mcgltf.wand.Endpoint;
 import com.onecuber.mcgltf.wand.WandInteractionHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -9,7 +11,7 @@ import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.client.event.InputEvent;
 
 public final class WandClientInput {
-    private boolean clearChordHeld;
+    private boolean airAttackHeld;
 
     public void onInteractionKey(
             InputEvent.InteractionKeyMappingTriggered event) {
@@ -18,7 +20,7 @@ public final class WandClientInput {
         }
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
-        if (player == null || !player.isShiftKeyDown()
+        if (player == null
                 || minecraft.hitResult == null
                 || minecraft.hitResult.getType() != HitResult.Type.MISS) {
             return;
@@ -29,17 +31,23 @@ public final class WandClientInput {
         }
         event.setCanceled(true);
         event.setSwingHand(false);
-        if (!clearChordHeld && minecraft.getConnection() != null) {
-            minecraft.getConnection().send(new ClearWandSelectionPayload(hand));
-            clearChordHeld = true;
+        if (airAttackHeld || minecraft.getConnection() == null) {
+            return;
         }
+        if (player.isShiftKeyDown()) {
+            minecraft.getConnection().send(
+                    new ClearWandSelectionPayload(hand));
+        } else {
+            minecraft.getConnection().send(
+                    new SetWandAirEndpointPayload(hand, Endpoint.POS1));
+        }
+        airAttackHeld = true;
     }
 
     public void tick(Minecraft minecraft) {
-        LocalPlayer player = minecraft.player;
-        if (player == null || !player.isShiftKeyDown()
+        if (minecraft.player == null
                 || !minecraft.options.keyAttack.isDown()) {
-            clearChordHeld = false;
+            airAttackHeld = false;
         }
     }
 }

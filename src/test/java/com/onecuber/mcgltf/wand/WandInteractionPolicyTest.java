@@ -18,11 +18,11 @@ class WandInteractionPolicyTest {
     void appliesTheApprovedInputPriorityTable() {
         assertEquals(SET_POS1, WandInteractionPolicy.decide(false, BLOCK, LEFT));
         assertEquals(SET_POS1, WandInteractionPolicy.decide(true, BLOCK, LEFT));
-        assertEquals(PASS, WandInteractionPolicy.decide(false, AIR, LEFT));
+        assertEquals(SET_POS1, WandInteractionPolicy.decide(false, AIR, LEFT));
         assertEquals(CLEAR, WandInteractionPolicy.decide(true, AIR, LEFT));
         assertEquals(SET_POS2, WandInteractionPolicy.decide(false, BLOCK, RIGHT));
         assertEquals(OPEN_GUI, WandInteractionPolicy.decide(true, BLOCK, RIGHT));
-        assertEquals(PASS, WandInteractionPolicy.decide(false, AIR, RIGHT));
+        assertEquals(SET_POS2, WandInteractionPolicy.decide(false, AIR, RIGHT));
         assertEquals(OPEN_GUI, WandInteractionPolicy.decide(true, AIR, RIGHT));
     }
 }
