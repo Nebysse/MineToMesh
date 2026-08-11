@@ -74,7 +74,7 @@ def main() -> int:
     gui_atlas = key_to_alpha(source_image)
 
     out = args.output
-    gui_out = out / "assets" / "mcgltf" / "textures" / "gui"
+    gui_out = out / "assets" / "minetomesh" / "textures" / "gui"
     gui_out.mkdir(parents=True, exist_ok=True)
 
     gui_sprites = crops["gui"]["sprites"]
