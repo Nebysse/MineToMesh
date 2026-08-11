@@ -61,8 +61,8 @@ public final class ExportWandItem extends Item {
         ExportWandService.INSTANCE.ensureIdentity(stack);
         ExportWandSelection selection = ExportWandService.INSTANCE.selection(stack);
         UUID wandId = selection.wandId().orElseThrow();
-        int slot = hand == InteractionHand.MAIN_HAND
-                ? player.getInventory().selected : WandBinding.OFFHAND_SLOT;
+        int slot = WandBinding.inventorySlot(
+                hand, player.getInventory().selected);
         WandBinding binding = new WandBinding(hand, slot, wandId);
         serverPlayer.openMenu(new SimpleMenuProvider(
                         (containerId, inventory, ignored) ->

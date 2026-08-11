@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.world.InteractionHand;
+import com.onecuber.mcgltf.wand.Endpoint;
 import org.junit.jupiter.api.Test;
 
 class WandPayloadCodecTest {
@@ -14,6 +16,26 @@ class WandPayloadCodecTest {
         ClearWandSelectionPayload payload =
                 new ClearWandSelectionPayload(InteractionHand.OFF_HAND);
         assertEquals(payload, roundTrip(ClearWandSelectionPayload.STREAM_CODEC, payload));
+    }
+
+    @Test
+    void endpointUpdateRoundTripsCompleteEndpoint() {
+        UpdateWandEndpointPayload payload = new UpdateWandEndpointPayload(
+                Endpoint.POS2, new BlockPos(-12, 80, 42));
+        assertEquals(payload, roundTrip(UpdateWandEndpointPayload.STREAM_CODEC, payload));
+    }
+
+    @Test
+    void overlayUpdateRoundTrips() {
+        ToggleWandOverlayPayload payload = new ToggleWandOverlayPayload(false);
+        assertEquals(payload, roundTrip(ToggleWandOverlayPayload.STREAM_CODEC, payload));
+    }
+
+    @Test
+    void exportNameUpdateRoundTrips() {
+        UpdateWandExportNamePayload payload =
+                new UpdateWandExportNamePayload("flower_factory");
+        assertEquals(payload, roundTrip(UpdateWandExportNamePayload.STREAM_CODEC, payload));
     }
 
     private static <T> T roundTrip(StreamCodec<FriendlyByteBuf, T> codec, T value) {

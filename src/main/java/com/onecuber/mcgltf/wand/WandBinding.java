@@ -26,16 +26,22 @@ public record WandBinding(InteractionHand hand, int inventorySlot, UUID wandId) 
             return Optional.empty();
         }
         ItemStack stack = player.getInventory().getItem(inventorySlot);
-        if (!stack.is(McGltfContent.EXPORT_WAND_ITEM.get())) {
-            return Optional.empty();
+        return matches(stack) ? Optional.of(stack) : Optional.empty();
+    }
+
+    public boolean matches(ItemStack stack) {
+        if (stack == null || !stack.is(McGltfContent.EXPORT_WAND_ITEM.get())) {
+            return false;
         }
         ExportWandSelection selection = stack.get(
                 McGltfContent.EXPORT_WAND_SELECTION.get());
-        if (selection == null || selection.wandId().isEmpty()
-                || !wandId.equals(selection.wandId().orElseThrow())) {
-            return Optional.empty();
-        }
-        return Optional.of(stack);
+        return selection != null && selection.wandId().isPresent()
+                && wandId.equals(selection.wandId().orElseThrow());
+    }
+
+    public static int inventorySlot(InteractionHand hand, int selectedSlot) {
+        Objects.requireNonNull(hand, "hand");
+        return hand == InteractionHand.MAIN_HAND ? selectedSlot : OFFHAND_SLOT;
     }
 
     public void encode(FriendlyByteBuf buffer) {
