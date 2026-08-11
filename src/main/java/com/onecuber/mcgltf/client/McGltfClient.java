@@ -1,8 +1,6 @@
 package com.onecuber.mcgltf.client;
 
 import com.onecuber.mcgltf.McGltf;
-import com.onecuber.mcgltf.client.workstation.OverlayKey;
-import com.onecuber.mcgltf.client.workstation.WorkstationExportController;
 import com.onecuber.mcgltf.client.wand.ExportWandController;
 import com.onecuber.mcgltf.client.wand.HeldWandOverlaySource;
 import com.onecuber.mcgltf.client.wand.SelectionOverlayRenderer;
@@ -16,7 +14,6 @@ import com.onecuber.mcgltf.job.ExportJob;
 import com.onecuber.mcgltf.job.ExportJobManager;
 import com.onecuber.mcgltf.job.ManagedJob;
 import com.onecuber.mcgltf.network.WandClientReceiver;
-import com.onecuber.mcgltf.network.WorkstationClientReceiver;
 import com.onecuber.mcgltf.wand.ExportWandMenu;
 import com.onecuber.mcgltf.world.SelectionStore;
 import net.minecraft.client.Minecraft;
@@ -38,7 +35,6 @@ public final class McGltfClient {
     private final SelectionStore selectionStore = new SelectionStore();
     private final ExportJobManager jobManager = new ExportJobManager();
     private final WandClientInput wandInput = new WandClientInput();
-    private final WorkstationExportController workstationController;
     private final ExportWandController wandController;
     private final SelectionOverlayRenderer overlayRenderer;
     private final McGltfCommands commands;
@@ -46,21 +42,12 @@ public final class McGltfClient {
     private ManagedJob notifiedTerminalJob;
 
     public McGltfClient(IEventBus modBus) {
-        workstationController = new WorkstationExportController(
-                (coordinates, dimension, name, telemetry) -> DefaultExportPipeline.create(
-                        Minecraft.getInstance(),
-                        coordinates.toSelection(dimension),
-                        name,
-                        telemetry),
-                WorkstationExportController.fromManager(jobManager));
         wandController = new ExportWandController(
                 (selection, name, telemetry) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name, telemetry),
                 ExportWandController.fromManager(jobManager));
         overlayRenderer = new SelectionOverlayRenderer(
                 new HeldWandOverlaySource());
-        WorkstationClientReceiver.install(
-                workstationController::accept, workstationController::reject);
         WandClientReceiver.install(wandController::accept, wandController::reject);
         commands = new McGltfCommands(selectionStore, jobManager,
                 (selection, name) -> DefaultExportPipeline.create(
@@ -86,7 +73,6 @@ public final class McGltfClient {
             activeDimension = dimension;
         }
         jobManager.tick();
-        workstationController.tick();
         notifyTerminalResult();
     }
 
@@ -127,7 +113,6 @@ public final class McGltfClient {
         selectionStore.clear();
         activeDimension = null;
         jobManager.cancel("logout");
-        workstationController.unbind();
         wandController.unbind();
     }
 

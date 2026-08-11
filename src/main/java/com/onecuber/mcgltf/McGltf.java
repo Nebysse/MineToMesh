@@ -2,7 +2,6 @@ package com.onecuber.mcgltf;
 
 import com.onecuber.mcgltf.content.McGltfContent;
 import com.onecuber.mcgltf.network.WandPayloads;
-import com.onecuber.mcgltf.network.WorkstationPayloads;
 import com.onecuber.mcgltf.wand.WandInteractionHandler;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -17,7 +16,6 @@ public final class McGltf {
     public McGltf(IEventBus modBus) {
         McGltfContent.register(modBus);
         WandPayloads.register(modBus);
-        WorkstationPayloads.register(modBus);
         NeoForge.EVENT_BUS.addListener(WandInteractionHandler::onLeftClickBlock);
     }
 }

@@ -14,7 +14,7 @@ public final class McGltfTestMod {
     public McGltfTestMod(IEventBus modBus) {
         TestContent.register(modBus);
         if (System.getProperty("mcgltf.serverSmoke") != null) {
-            NeoForge.EVENT_BUS.addListener(WorkstationGameTests::onServerStarted);
+            NeoForge.EVENT_BUS.addListener(WandGameTests::onServerStarted);
         }
         if (FMLEnvironment.dist == Dist.CLIENT) {
             McGltfTestClient.register(modBus);

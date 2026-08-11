@@ -140,7 +140,6 @@ public final class ExportWandController {
     }
 
     public void tick() {
-        jobs.tick();
         if (ownedJob != null && ownedJob.isTerminal()) {
             summary = ownedJob.summary();
             state = switch (ownedJob.state()) {
