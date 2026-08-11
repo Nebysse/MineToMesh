@@ -3,6 +3,7 @@
 日期：2026-08-11  
 状态：设计已确认，待用户书面复核  
 基线分支：`feature/mcgltf-0.4.0-export-wand`  
+目标版本：0.5.0
 Minecraft：1.21.1  
 NeoForge：21.1.244
 

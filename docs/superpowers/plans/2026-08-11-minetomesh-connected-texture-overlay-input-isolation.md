@@ -10,6 +10,8 @@
 
 **Execution policy:** Execute inline in `D:\data\code\mcgltf\.worktrees\mcgltf-0.4.0-export-wand`. Preserve strict red-green-refactor TDD. The current worktree contains uncommitted wand-polish work; Task 0 creates a verified baseline before any files shared with this feature are changed.
 
+**Execution amendments (2026-08-11):** The project owner raised the release target to `0.5.0`. Minecraft 1.21.1 has no `Screen.passEvents` field, so input isolation is implemented through consuming `keyPressed`, `keyReleased`, and `charTyped` without propagating ordinary keys to `AbstractContainerScreen`.
+
 ---
 
 ## File Structure
