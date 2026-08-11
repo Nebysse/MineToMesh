@@ -7,6 +7,7 @@ import com.onecuber.mcgltf.client.workstation.SelectionOverlayRenderer;
 import com.onecuber.mcgltf.client.workstation.SelectionOverlayState;
 import com.onecuber.mcgltf.client.workstation.WorkstationExportController;
 import com.onecuber.mcgltf.client.wand.ExportWandController;
+import com.onecuber.mcgltf.client.wand.ExportWandScreen;
 import com.onecuber.mcgltf.client.wand.WandClientInput;
 import com.onecuber.mcgltf.command.ClientMessages;
 import com.onecuber.mcgltf.command.McGltfCommands;
@@ -17,6 +18,7 @@ import com.onecuber.mcgltf.job.ExportJobManager;
 import com.onecuber.mcgltf.job.ManagedJob;
 import com.onecuber.mcgltf.network.WandClientReceiver;
 import com.onecuber.mcgltf.network.WorkstationClientReceiver;
+import com.onecuber.mcgltf.wand.ExportWandMenu;
 import com.onecuber.mcgltf.workstation.ExportWorkstationMenu;
 import com.onecuber.mcgltf.world.SelectionStore;
 import net.minecraft.client.Minecraft;
@@ -121,6 +123,17 @@ public final class McGltfClient {
                         return new ExportWorkstationScreen(
                                 menu, inventory, title,
                                 workstationController, overlayState);
+                    }
+                });
+        event.register(McGltfContent.EXPORT_WAND_MENU.get(),
+                new MenuScreens.ScreenConstructor<ExportWandMenu, ExportWandScreen>() {
+                    @Override
+                    public ExportWandScreen create(
+                            ExportWandMenu menu,
+                            Inventory inventory,
+                            Component title) {
+                        return new ExportWandScreen(
+                                menu, inventory, title, wandController);
                     }
                 });
     }
