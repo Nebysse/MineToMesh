@@ -18,14 +18,14 @@ import org.junit.jupiter.api.Test;
 
 class ObjTopologyConverterTest {
     @Test
-    void quadBecomesOneReversedFourVertexFace() {
+    void quadPreservesFourVertexSourceOrder() {
         PrimitiveData quad = new PrimitiveData(
                 vertices(4), PrimitiveMode.QUADS, new int[] {4}, material());
 
         List<int[]> faces = ObjTopologyConverter.faces(quad);
 
         assertEquals(1, faces.size());
-        assertArrayEquals(new int[] {0, 3, 2, 1}, faces.getFirst());
+        assertArrayEquals(new int[] {0, 1, 2, 3}, faces.getFirst());
     }
 
     @Test
@@ -36,10 +36,23 @@ class ObjTopologyConverterTest {
         List<int[]> faces = ObjTopologyConverter.faces(fans);
 
         assertEquals(4, faces.size());
-        assertArrayEquals(new int[] {0, 2, 1}, faces.get(0));
-        assertArrayEquals(new int[] {0, 3, 2}, faces.get(1));
-        assertArrayEquals(new int[] {4, 6, 5}, faces.get(2));
-        assertArrayEquals(new int[] {4, 7, 6}, faces.get(3));
+        assertArrayEquals(new int[] {0, 1, 2}, faces.get(0));
+        assertArrayEquals(new int[] {0, 2, 3}, faces.get(1));
+        assertArrayEquals(new int[] {4, 5, 6}, faces.get(2));
+        assertArrayEquals(new int[] {4, 6, 7}, faces.get(3));
+    }
+
+    @Test
+    void triangleStripPreservesSourceParity() {
+        PrimitiveData strip = new PrimitiveData(
+                vertices(4), PrimitiveMode.TRIANGLE_STRIP,
+                new int[] {4}, material());
+
+        List<int[]> faces = ObjTopologyConverter.faces(strip);
+
+        assertEquals(2, faces.size());
+        assertArrayEquals(new int[] {0, 1, 2}, faces.get(0));
+        assertArrayEquals(new int[] {2, 1, 3}, faces.get(1));
     }
 
     @Test

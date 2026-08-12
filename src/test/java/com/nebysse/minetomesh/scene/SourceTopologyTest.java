@@ -34,8 +34,8 @@ class SourceTopologyTest {
 
         assertEquals(4, converted.gltfMode());
         assertArrayEquals(new int[] {
-                0, 2, 1, 2, 3, 1,
-                4, 6, 5, 6, 7, 5
+                0, 1, 2, 2, 1, 3,
+                4, 5, 6, 6, 5, 7
         }, converted.indices());
     }
 
