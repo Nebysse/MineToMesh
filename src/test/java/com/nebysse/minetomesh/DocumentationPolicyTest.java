@@ -14,7 +14,7 @@ class DocumentationPolicyTest {
     void readmeDocumentsTheWandReleaseAndMigration() throws Exception {
         String readme = read("README.md");
         for (String fragment : List.of(
-                "MineToMesh-0.5.1.jar",
+                "MineToMesh-1.0.0.jar",
                 "客户端和服务端",
                 "导出魔杖",
                 "Shift+右键",
@@ -35,7 +35,8 @@ class DocumentationPolicyTest {
                 "不执行轴反射",
                 "Minecraft `+X` → Blender `+X`",
                 "Minecraft `+Y` → Blender `+Z`",
-                "Minecraft `+Z` → Blender `-Y`")) {
+                "Minecraft `+Z` → Blender `-Y`",
+                "模组列表封面")) {
             assertTrue(readme.contains(fragment),
                     "README must mention: " + fragment);
         }

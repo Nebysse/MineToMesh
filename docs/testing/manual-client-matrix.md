@@ -1,6 +1,6 @@
-# MineToMesh 0.5.1 客户端手工验收矩阵
+# MineToMesh 1.0.0 客户端手工验收矩阵
 
-目标环境：Minecraft 1.21.1、NeoForge 21.1.244，客户端和服务端均安装 `MineToMesh-0.5.1.jar`。除权限场景外，使用同一根导出魔杖依次执行，检查声音、物品组件、Overlay、GUI 与导出目录。
+目标环境：Minecraft 1.21.1、NeoForge 21.1.244，客户端和服务端均安装 `MineToMesh-1.0.0.jar`。除权限场景外，使用同一根导出魔杖依次执行，检查声音、物品组件、Overlay、GUI 与导出目录。
 
 ## 0.5.1 硬身份迁移
 
@@ -69,7 +69,7 @@
 | 未加载区块 | 选区跨越视距外区块 | 不强制加载新区块，`report.json` 记录缺失区块 |
 | 同名导出 | 连续导出同名两次 | 生成 `<名称>/` 与 `<名称>-2/` |
 
-## 0.5.1 项目所有者人工视觉/交互验收
+## 1.0.0 项目所有者人工视觉/交互验收
 
 以下项目必须由项目所有者在真实游戏和 Blender 中判断，自动化测试只检查结构，不替代视觉结论。
 
@@ -81,9 +81,9 @@
 | 中文输入法 | 名称框输入中文并提交 | 中文名称保存并用于输出目录，快捷键不泄漏 |
 | 关闭后恢复 | Esc 关闭 GUI 后按 E、WASD、1 至 9 | 游戏快捷键立即恢复，无粘滞状态 |
 
-## 0.5.1 候选包验收记录
+## 1.0.0 候选包验收记录
 
 - 自动化：执行 `clean test build`、`ServerClassIsolationTest` 与 `runServerSmoke`。
-- JAR：文件名必须为 `MineToMesh-0.5.1.jar`，必须包含 `assets/minetomesh/`、`data/minetomesh/`、导出魔杖模型、贴图、配方及 77 张 GUI 切片，不得包含旧包路径、旧资源命名空间、`export_workstation`、测试模组或设计文档。
+- JAR：文件名必须为 `MineToMesh-1.0.0.jar`，必须包含 `assets/minetomesh/`、`data/minetomesh/`、导出魔杖模型、贴图、配方及 77 张 GUI 切片，不得包含旧包路径、旧资源命名空间、`export_workstation`、测试模组或设计文档。
 - 真实客户端：按本矩阵完成世界 A → 世界 B 的重连闭环，再安装到已知 PCL 实例。
 - Blender 与真实模组视觉验收由人工执行，自动测试不替代最终视觉判断。
