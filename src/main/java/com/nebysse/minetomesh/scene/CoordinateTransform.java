@@ -14,11 +14,11 @@ public final class CoordinateTransform {
         return new Vec3f(
                 world.x() - origin.x(),
                 world.y() - origin.y(),
-                -(world.z() - origin.z()));
+                world.z() - origin.z());
     }
 
     public Vec3f normal(Vec3f value) {
         Objects.requireNonNull(value, "value");
-        return new Vec3f(value.x(), value.y(), -value.z()).normalizedOrUp();
+        return value.normalizedOrUp();
     }
 }
