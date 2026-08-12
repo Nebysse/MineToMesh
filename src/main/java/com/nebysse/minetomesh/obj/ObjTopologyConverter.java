@@ -43,9 +43,9 @@ public final class ObjTopologyConverter {
                 for (int index = 0; index < complete; index += 4) {
                     output.add(new int[] {
                             offset + index,
-                            offset + index + 3,
+                            offset + index + 1,
                             offset + index + 2,
-                            offset + index + 1});
+                            offset + index + 3});
                 }
             }
             case TRIANGLES -> {
@@ -53,16 +53,16 @@ public final class ObjTopologyConverter {
                 for (int index = 0; index < complete; index += 3) {
                     output.add(new int[] {
                             offset + index,
-                            offset + index + 2,
-                            offset + index + 1});
+                            offset + index + 1,
+                            offset + index + 2});
                 }
             }
             case TRIANGLE_FAN -> {
                 for (int index = 1; index < count - 1; index++) {
                     output.add(new int[] {
                             offset,
-                            offset + index + 1,
-                            offset + index});
+                            offset + index,
+                            offset + index + 1});
                 }
             }
             case TRIANGLE_STRIP -> {
@@ -70,13 +70,13 @@ public final class ObjTopologyConverter {
                     if ((index & 1) == 0) {
                         output.add(new int[] {
                                 offset + index,
-                                offset + index + 2,
-                                offset + index + 1});
+                                offset + index + 1,
+                                offset + index + 2});
                     } else {
                         output.add(new int[] {
                                 offset + index + 1,
-                                offset + index + 2,
-                                offset + index});
+                                offset + index,
+                                offset + index + 2});
                     }
                 }
             }
