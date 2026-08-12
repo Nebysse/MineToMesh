@@ -21,7 +21,8 @@ class PrimitiveAccumulatorTest {
 
         assertEquals(1, result.primitives().size());
         assertEquals(6, result.primitives().getFirst().vertices().size());
-        assertArrayEquals(new int[] {0, 2, 1, 3, 5, 4}, result.primitives().getFirst().indices());
+        assertArrayEquals(new int[] {0, 1, 2, 3, 4, 5},
+                result.primitives().getFirst().indices());
         assertEquals(0, result.diagnostics().size());
     }
 

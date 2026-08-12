@@ -47,7 +47,7 @@ class StreamingObjSessionTest {
         String mtl = Files.readString(tempDir.resolve("sample.mtl"));
         assertTrue(obj.contains("mtllib sample.mtl"));
         assertTrue(obj.contains("o chunk_0_0_section_4"));
-        assertTrue(obj.contains("f 1/1/1 4/4/4 3/3/3 2/2/2"));
+        assertTrue(obj.contains("f 1/1/1 2/2/2 3/3/3 4/4/4"));
         assertTrue(mtl.contains("map_Kd textures/minecraft/block/stone.png"));
         assertEquals(1, statistics.nodeCount());
         assertEquals(1, statistics.primitiveCount());
@@ -83,7 +83,7 @@ class StreamingObjSessionTest {
         String obj = Files.readString(tempDir.resolve("overlay.obj"));
         assertEquals(1, occurrences(obj, "o selection_grass_side_overlay"));
         assertEquals(2, occurrences(obj,
-                "f -4/-4/-4 -1/-1/-1 -2/-2/-2 -3/-3/-3"));
+                "f -4/-4/-4 -3/-3/-3 -2/-2/-2 -1/-1/-1"));
         assertTrue(obj.contains("v 0.0 0.0 0.0 1.0 0.0 0.0"));
         assertEquals(1L, statistics.nodeCount());
         assertEquals(2L, statistics.primitiveCount());

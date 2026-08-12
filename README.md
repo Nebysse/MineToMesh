@@ -1,6 +1,6 @@
 # MineToMesh
 
-MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与 OBJ 场景。0.5.1 完成 Mod ID、Java 包、资源命名空间、命令与输出目录的硬身份迁移；导出魔杖继续负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
+MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与 OBJ 场景。1.0.0 修复导出模型的坐标手性，使 glTF 与 OBJ 不再产生镜像，并加入正式模组列表封面；导出魔杖继续负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
 
 ## 特性
 
@@ -13,16 +13,17 @@ MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户
 - glTF 按规范三角化；OBJ 保留捕获到的原始 Quad。
 - 保留 PNG 纹理、顶点色、透明模式、双面和发光语义。
 - 输出层级固定为 `Chunks`、`BlockEntities`、`Entities`、`Placeholders`、`Overlays`。
-- 坐标转换为 `(X,Y,Z) → (X,Y,-Z)`，选区最小点为局部原点，一格对应 Blender 一米。
+- 坐标以选区最小点为局部原点，一格对应 Blender 一米；导出空间保留 Minecraft 的 `(X,Y,Z)` 相对方向，不执行轴反射。
+- Blender 导入 glTF 后执行 Y-up 到 Z-up 的轴旋转：Minecraft `+X` → Blender `+X`、Minecraft `+Y` → Blender `+Z`、Minecraft `+Z` → Blender `-Y`。
 - 未加载区块不会被强制加载，诊断写入 `report.json`。
 
 ## 安装
 
 1. 安装 Minecraft 1.21.1 与 NeoForge 21.1.244。
-2. 将 `MineToMesh-0.5.1.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
+2. 将 `MineToMesh-1.0.0.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
 3. 启动游戏。实际导出文件写在发起操作的玩家客户端。
 
-0.5.1 的运行时 Mod ID 为 `minetomesh`，Java 根包为 `com.nebysse.minetomesh`。客户端与服务端必须使用同一版本。
+1.0.0 的运行时 Mod ID 为 `minetomesh`，Java 根包为 `com.nebysse.minetomesh`。客户端与服务端必须使用同一版本。
 
 ## 导出魔杖
 
