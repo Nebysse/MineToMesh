@@ -75,15 +75,15 @@ public final class TopologyConverter {
         for (int base = 0; base < complete; base += groupSize) {
             if (quads) {
                 indices[cursor++] = base;
-                indices[cursor++] = base + 2;
                 indices[cursor++] = base + 1;
-                indices[cursor++] = base;
-                indices[cursor++] = base + 3;
                 indices[cursor++] = base + 2;
+                indices[cursor++] = base;
+                indices[cursor++] = base + 2;
+                indices[cursor++] = base + 3;
             } else {
                 indices[cursor++] = base;
-                indices[cursor++] = base + 2;
                 indices[cursor++] = base + 1;
+                indices[cursor++] = base + 2;
             }
         }
         return new ConvertedTopology(4, indices, incompleteDiagnostic(count - complete, objectId));
@@ -97,8 +97,8 @@ public final class TopologyConverter {
         int cursor = 0;
         for (int index = 1; index < count - 1; index++) {
             indices[cursor++] = 0;
-            indices[cursor++] = index + 1;
             indices[cursor++] = index;
+            indices[cursor++] = index + 1;
         }
         return new ConvertedTopology(4, indices, List.of());
     }
@@ -112,12 +112,12 @@ public final class TopologyConverter {
         for (int index = 0; index < count - 2; index++) {
             if ((index & 1) == 0) {
                 indices[cursor++] = index;
-                indices[cursor++] = index + 2;
                 indices[cursor++] = index + 1;
+                indices[cursor++] = index + 2;
             } else {
                 indices[cursor++] = index + 1;
-                indices[cursor++] = index + 2;
                 indices[cursor++] = index;
+                indices[cursor++] = index + 2;
             }
         }
         return new ConvertedTopology(4, indices, List.of());
@@ -140,28 +140,14 @@ public final class TopologyConverter {
         if (count < 3) {
             return new ConvertedTopology(6, new int[0], incompleteDiagnostic(count, objectId));
         }
-        int[] indices = new int[count];
-        indices[0] = 0;
-        for (int i = 1; i < count; i++) {
-            indices[i] = count - i;
-        }
-        return new ConvertedTopology(6, indices, List.of());
+        return new ConvertedTopology(6, range(count), List.of());
     }
 
     private static ConvertedTopology strip(int count, String objectId) {
         if (count < 3) {
             return new ConvertedTopology(5, new int[0], incompleteDiagnostic(count, objectId));
         }
-        boolean needsParityDuplicate = count % 2 == 0;
-        int[] indices = new int[count + (needsParityDuplicate ? 1 : 0)];
-        int cursor = 0;
-        if (needsParityDuplicate) {
-            indices[cursor++] = count - 1;
-        }
-        for (int i = count - 1; i >= 0; i--) {
-            indices[cursor++] = i;
-        }
-        return new ConvertedTopology(5, indices, List.of());
+        return new ConvertedTopology(5, range(count), List.of());
     }
 
     private static ConvertedTopology lines(int count, String objectId) {
