@@ -31,13 +31,18 @@ class DocumentationPolicyTest {
                 "com.nebysse.minetomesh",
                 ".minecraft/minetomesh-exports/",
                 "不提供 Missing Mapping",
-                "旧 `.minecraft/" + "mc" + "gltf-exports/` 目录不会被移动或删除")) {
+                "旧 `.minecraft/" + "mc" + "gltf-exports/` 目录不会被移动或删除",
+                "不执行轴反射",
+                "Minecraft `+X` → Blender `+X`",
+                "Minecraft `+Y` → Blender `+Z`",
+                "Minecraft `+Z` → Blender `-Y`")) {
             assertTrue(readme.contains(fragment),
                     "README must mention: " + fragment);
         }
         assertFalse(readme.contains("制作区域导出工作台"));
         assertFalse(readme.contains("放置区域导出工作台"));
         assertFalse(readme.contains("/" + "mc" + "gltf pos1"));
+        assertFalse(readme.contains("(X,Y,Z) → (X,Y,-Z)"));
     }
 
     @Test
@@ -70,7 +75,8 @@ class DocumentationPolicyTest {
                 "旧魔杖数据",
                 "命令切换",
                 "输出目录切换",
-                "双端一致性")) {
+                "双端一致性",
+                "非对称坐标方位")) {
             assertTrue(matrix.contains(fragment),
                     "manual matrix must cover: " + fragment);
         }

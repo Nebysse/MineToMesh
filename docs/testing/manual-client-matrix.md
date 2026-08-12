@@ -64,6 +64,7 @@
 | 模组渲染 | Create 6.0.10、Flywheel 1.0.6、Touhou Little Maid 1.5.3 | 齿轮箱、储液罐和女仆无错误占位符，后端状态恢复 |
 | glTF 导入 | 在 Blender 5.2 导入 `.gltf` | 层级、比例、轴向、材质、UV 正确，面为三角形 |
 | OBJ 导入 | 在 Blender 5.2 导入 `.obj` | 对象与材质正确，捕获到的源 Quad 保留为四边面 |
+| 非对称坐标方位 | 在选区东侧放金块、西侧放钻石块，分别导入 glTF 与 OBJ | 两种格式均无镜像；Minecraft +X 对应 Blender +X，材质、法线和正面方向正确 |
 | Khronos 校验 | 对 glTF 运行 Validator | `numErrors: 0` |
 | 未加载区块 | 选区跨越视距外区块 | 不强制加载新区块，`report.json` 记录缺失区块 |
 | 同名导出 | 连续导出同名两次 | 生成 `<名称>/` 与 `<名称>-2/` |

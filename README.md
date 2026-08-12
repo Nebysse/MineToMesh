@@ -13,7 +13,8 @@ MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户
 - glTF 按规范三角化；OBJ 保留捕获到的原始 Quad。
 - 保留 PNG 纹理、顶点色、透明模式、双面和发光语义。
 - 输出层级固定为 `Chunks`、`BlockEntities`、`Entities`、`Placeholders`、`Overlays`。
-- 坐标转换为 `(X,Y,Z) → (X,Y,-Z)`，选区最小点为局部原点，一格对应 Blender 一米。
+- 坐标以选区最小点为局部原点，一格对应 Blender 一米；导出空间保留 Minecraft 的 `(X,Y,Z)` 相对方向，不执行轴反射。
+- Blender 导入 glTF 后执行 Y-up 到 Z-up 的轴旋转：Minecraft `+X` → Blender `+X`、Minecraft `+Y` → Blender `+Z`、Minecraft `+Z` → Blender `-Y`。
 - 未加载区块不会被强制加载，诊断写入 `report.json`。
 
 ## 安装
