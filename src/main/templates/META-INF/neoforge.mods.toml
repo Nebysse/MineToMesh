@@ -8,7 +8,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 logoFile="minetomesh_logo.png"
 logoBlur=true
-authors="OneCuber"
+authors="岚苍穹 nebysse"
 description='''
 Client and server item-owned export wand with client-side Blender-ready glTF and OBJ capture.
 '''

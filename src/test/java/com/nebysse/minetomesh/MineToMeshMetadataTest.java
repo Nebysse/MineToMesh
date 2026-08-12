@@ -23,6 +23,8 @@ class MineToMeshMetadataTest {
             metadata = new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
         assertTrue(metadata.contains("version=\"1.0.0\""));
+        assertTrue(metadata.contains("authors=\"岚苍穹 nebysse\""));
+        assertFalse(metadata.contains("authors=\"OneCuber\""));
         assertFalse(metadata.contains("side=\"CLIENT\""));
         assertTrue(metadata.contains("item-owned export wand"));
     }
