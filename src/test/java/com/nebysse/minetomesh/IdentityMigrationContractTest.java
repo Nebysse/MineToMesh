@@ -16,7 +16,7 @@ class IdentityMigrationContractTest {
     private static final String LEGACY_PACKAGE = "com.onecuber." + LEGACY_ID;
 
     @Test
-    void buildIdentityDeclaresMineToMesh051() throws Exception {
+    void buildIdentityDeclaresMineToMesh100() throws Exception {
         Properties properties = new Properties();
         try (var reader = Files.newBufferedReader(
                 projectRoot().resolve("gradle.properties"), StandardCharsets.UTF_8)) {
@@ -25,7 +25,7 @@ class IdentityMigrationContractTest {
 
         assertEquals("minetomesh", properties.getProperty("mod_id"));
         assertEquals("MineToMesh", properties.getProperty("mod_name"));
-        assertEquals("0.5.1", properties.getProperty("mod_version"));
+        assertEquals("1.0.0", properties.getProperty("mod_version"));
         assertEquals("com.nebysse.minetomesh", properties.getProperty("mod_group_id"));
         assertTrue(read("build.gradle").contains("archivesName = mod_name"));
         assertTrue(read("settings.gradle").contains("rootProject.name = 'MineToMesh'"));

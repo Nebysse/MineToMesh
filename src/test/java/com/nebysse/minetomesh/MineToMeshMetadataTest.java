@@ -12,7 +12,7 @@ class MineToMeshMetadataTest {
     void exposesMineToMeshReleaseIdentity() {
         assertEquals("minetomesh", MineToMesh.MOD_ID);
         assertEquals("MineToMesh", MineToMesh.DISPLAY_NAME);
-        assertEquals("0.5.1", MineToMesh.VERSION);
+        assertEquals("1.0.0", MineToMesh.VERSION);
     }
 
     @Test
@@ -22,7 +22,7 @@ class MineToMeshMetadataTest {
                 "/META-INF/neoforge.mods.toml")) {
             metadata = new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
-        assertTrue(metadata.contains("version=\"0.5.1\""));
+        assertTrue(metadata.contains("version=\"1.0.0\""));
         assertFalse(metadata.contains("side=\"CLIENT\""));
         assertTrue(metadata.contains("item-owned export wand"));
     }
