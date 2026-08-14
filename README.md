@@ -1,12 +1,14 @@
 # MineToMesh
 
-MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与 OBJ 场景。1.0.0 修复导出模型的坐标手性，使 glTF 与 OBJ 不再产生镜像，并加入正式模组列表封面；导出魔杖继续负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
+MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与 OBJ 场景。1.1.0 补全动态方块实体、普通实体和占位网格的右手坐标契约，修复 Create 传送带等动态模型在 Blender 中沿 Y 轴镜像及法线反向的问题，并让动态方块实体在 glTF 与 OBJ 中按完整材质键全局合批。导出魔杖继续负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
 
 ## 特性
 
 - 客户端和服务端均需安装，目标版本为 NeoForge 21.1.244。
+- NeoForge 使用正式模组列表封面，作者显示为 `岚苍穹 nebysse`。
 - 每根导出魔杖独立保存 `wandId`、维度、POS1、POS2、Overlay 开关与导出名；移动物品不会丢失数据，两根魔杖互不串线。
 - 支持原版及模组 `BakedModel`、流体、方块实体渲染器和普通实体渲染器。
+- 动态方块实体按完整 `MaterialKey` 全局合批；相同材质的连续传送带等几何在 Blender 中形成一个网格对象。
 - 根据 Quad 的实际 Atlas UV 反查真实 Sprite，兼容 Create 6.x `*_connected` 纹理表，不引入 Create、Catnip 或 Flywheel 硬依赖。
 - 原版草方块保留底层侧面与 Tint Overlay 双层几何；整个选区的 Overlay 合并为一个 `selection/grass_side_overlay` 对象。
 - 每次导出同时生成 glTF 2.0 与 OBJ，两种格式共享纹理。
@@ -20,10 +22,10 @@ MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户
 ## 安装
 
 1. 安装 Minecraft 1.21.1 与 NeoForge 21.1.244。
-2. 将 `MineToMesh-1.0.0.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
+2. 将 `MineToMesh-1.1.0.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
 3. 启动游戏。实际导出文件写在发起操作的玩家客户端。
 
-1.0.0 的运行时 Mod ID 为 `minetomesh`，Java 根包为 `com.nebysse.minetomesh`。客户端与服务端必须使用同一版本。
+1.1.0 的运行时 Mod ID 为 `minetomesh`，Java 根包为 `com.nebysse.minetomesh`。客户端与服务端必须使用同一版本。
 
 ## 导出魔杖
 
