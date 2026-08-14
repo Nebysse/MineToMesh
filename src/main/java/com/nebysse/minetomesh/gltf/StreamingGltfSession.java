@@ -57,9 +57,9 @@ public final class StreamingGltfSession implements Closeable {
                 written.add(write(primitive, node.name()));
                 primitiveCount = Math.addExact(primitiveCount, 1L);
             }
-            if (!written.isEmpty()
-                    && documentBuilder.addNode(node, written)) {
-                nodeCount = Math.addExact(nodeCount, 1L);
+            if (!written.isEmpty()) {
+                nodeCount = Math.addExact(
+                        nodeCount, documentBuilder.addNode(node, written));
             }
         }
     }
