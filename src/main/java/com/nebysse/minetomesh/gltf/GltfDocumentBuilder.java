@@ -38,6 +38,8 @@ public final class GltfDocumentBuilder {
     private final Map<MaterialKey, Integer> materialIndices = new LinkedHashMap<>();
     private final Map<String, CapturedNode.Kind> logicalKinds = new LinkedHashMap<>();
     private final Map<String, MergedNode> overlayNodes = new LinkedHashMap<>();
+    private final Map<MaterialKey, MergedNode> blockEntityMaterialNodes =
+            new LinkedHashMap<>();
     private boolean finished;
 
     public GltfDocumentBuilder(String bufferUri, Map<String, Object> rootExtras) {
@@ -50,7 +52,7 @@ public final class GltfDocumentBuilder {
         addHierarchyRoot("Overlays");
     }
 
-    public boolean addNode(CapturedNode capturedNode, List<WrittenPrimitive> writtenPrimitives) {
+    public int addNode(CapturedNode capturedNode, List<WrittenPrimitive> writtenPrimitives) {
         requireOpen();
         Objects.requireNonNull(capturedNode, "capturedNode");
         List<WrittenPrimitive> written = List.copyOf(writtenPrimitives);
@@ -58,7 +60,10 @@ public final class GltfDocumentBuilder {
             throw new IllegalArgumentException("Written primitive count must match captured primitive count");
         }
         if (written.isEmpty()) {
-            return false;
+            return 0;
+        }
+        if (capturedNode.kind() == CapturedNode.Kind.BLOCK_ENTITY) {
+            return addBlockEntityPrimitives(written);
         }
 
         CapturedNode.Kind existingKind = logicalKinds.putIfAbsent(
@@ -77,18 +82,50 @@ public final class GltfDocumentBuilder {
             JsonArray primitiveJson = primitives(written);
             if (existing != null) {
                 primitiveJson.forEach(existing.primitives()::add);
-                return false;
+                return 0;
             }
             int meshIndex = addMesh(capturedNode.name(), primitiveJson);
             int nodeIndex = addCapturedNode(capturedNode, meshIndex);
             overlayNodes.put(capturedNode.name(), new MergedNode(
                     primitiveJson, Map.copyOf(capturedNode.extras()), nodeIndex, meshIndex));
-            return true;
+            return 1;
         }
 
         int meshIndex = addMesh(capturedNode.name(), primitives(written));
         addCapturedNode(capturedNode, meshIndex);
-        return true;
+        return 1;
+    }
+
+    private int addBlockEntityPrimitives(List<WrittenPrimitive> written) {
+        int createdNodes = 0;
+        for (WrittenPrimitive primitive : written) {
+            MaterialKey material = primitive.material();
+            JsonObject primitiveJson = addPrimitive(primitive);
+            MergedNode existing = blockEntityMaterialNodes.get(material);
+            if (existing != null) {
+                existing.primitives().add(primitiveJson);
+                continue;
+            }
+
+            String name = String.format(
+                    "BlockEntities/material_%04d", blockEntityMaterialNodes.size());
+            JsonArray primitiveJsonArray = new JsonArray();
+            primitiveJsonArray.add(primitiveJson);
+            int meshIndex = addMesh(name, primitiveJsonArray);
+            CapturedNode mergedNode = new CapturedNode(
+                    name,
+                    CapturedNode.Kind.BLOCK_ENTITY,
+                    List.of(),
+                    Map.of(
+                            "mergePolicy", "GLOBAL_MATERIAL",
+                            "materialSourceId", material.texture().sourceId()));
+            int nodeIndex = addCapturedNode(mergedNode, meshIndex);
+            logicalKinds.put(name, CapturedNode.Kind.BLOCK_ENTITY);
+            blockEntityMaterialNodes.put(material, new MergedNode(
+                    primitiveJsonArray, mergedNode.extras(), nodeIndex, meshIndex));
+            createdNodes = Math.addExact(createdNodes, 1);
+        }
+        return createdNodes;
     }
 
     private JsonArray primitives(List<WrittenPrimitive> written) {

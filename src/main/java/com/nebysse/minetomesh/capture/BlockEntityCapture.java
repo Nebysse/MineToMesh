@@ -162,13 +162,8 @@ public final class BlockEntityCapture {
     }
 
     private static PoseStack blockEntityPose(BlockPos position, Selection selection) {
-        PoseStack poseStack = new PoseStack();
-        poseStack.translate(
-                position.getX() - selection.min().x(),
-                position.getY() - selection.min().y(),
-                -(position.getZ() - selection.min().z()));
-        poseStack.scale(1.0F, 1.0F, -1.0F);
-        return poseStack;
+        return CaptureCoordinates.translatedPose(CaptureCoordinates.localPosition(
+                position.getX(), position.getY(), position.getZ(), selection));
     }
 
     @SuppressWarnings("unchecked")
@@ -187,10 +182,9 @@ public final class BlockEntityCapture {
         extras.put("registryId", registryId);
         extras.put("worldPosition", List.of(
                 position.getX(), position.getY(), position.getZ()));
-        extras.put("localPosition", List.of(
-                position.getX() - selection.min().x(),
-                position.getY() - selection.min().y(),
-                -(position.getZ() - selection.min().z())));
+        com.nebysse.minetomesh.scene.Vec3f local = CaptureCoordinates.localPosition(
+                position.getX(), position.getY(), position.getZ(), selection);
+        extras.put("localPosition", List.of(local.x(), local.y(), local.z()));
         extras.put("rendererClass", rendererClass);
         return extras;
     }

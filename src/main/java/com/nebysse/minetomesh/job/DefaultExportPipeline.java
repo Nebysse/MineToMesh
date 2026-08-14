@@ -6,6 +6,7 @@ import com.nebysse.minetomesh.MineToMesh;
 import com.nebysse.minetomesh.capture.BlockEntityCapture;
 import com.nebysse.minetomesh.capture.BlockModelExtractor;
 import com.nebysse.minetomesh.capture.BlockPrimitiveRouter;
+import com.nebysse.minetomesh.capture.CaptureCoordinates;
 import com.nebysse.minetomesh.capture.CaptureState;
 import com.nebysse.minetomesh.capture.EntityCapture;
 import com.nebysse.minetomesh.capture.FluidGeometryCapture;
@@ -27,7 +28,6 @@ import com.nebysse.minetomesh.scene.Diagnostic;
 import com.nebysse.minetomesh.scene.MaterialKey;
 import com.nebysse.minetomesh.scene.PrimitiveAccumulator;
 import com.nebysse.minetomesh.scene.PrimitiveMode;
-import com.nebysse.minetomesh.scene.Vec3f;
 import com.nebysse.minetomesh.texture.AtlasSpriteResolver;
 import com.nebysse.minetomesh.texture.GlGpuTextureAccess;
 import com.nebysse.minetomesh.texture.GpuTextureProvider;
@@ -349,13 +349,12 @@ public final class DefaultExportPipeline {
             }
 
             private CapturedNode blockPlaceholder(BlockPos position) {
-                float x = position.getX() - plan.selection().min().x();
-                float y = position.getY() - plan.selection().min().y();
-                float z = position.getZ() - plan.selection().min().z();
+                CaptureCoordinates.Bounds bounds = CaptureCoordinates.blockBounds(
+                        position, plan.selection());
                 return PlaceholderFactory.create(
                         "block/" + position.toShortString(),
-                        new Vec3f(x, y, -z - 1.0F),
-                        new Vec3f(x + 1.0F, y + 1.0F, -z),
+                        bounds.min(),
+                        bounds.max(),
                         Map.of(
                                 "worldPosition", List.of(
                                         position.getX(), position.getY(), position.getZ()),
