@@ -58,6 +58,76 @@ class StreamingGltfSessionTest {
     }
 
     @Test
+    void globallyBatchesBlockEntitiesWithTheSameMaterial() throws Exception {
+        PrimitiveData primitive = GltfDocumentBuilderTest.triangle();
+        CapturedNode first = new CapturedNode(
+                "create:belt/10,64,20", CapturedNode.Kind.BLOCK_ENTITY,
+                List.of(primitive), Map.of("worldPosition", List.of(10, 64, 20)));
+        CapturedNode second = new CapturedNode(
+                "create:belt/11,64,20", CapturedNode.Kind.BLOCK_ENTITY,
+                List.of(primitive), Map.of("worldPosition", List.of(11, 64, 20)));
+
+        StreamingGltfSession.OutputStatistics statistics;
+        try (StreamingGltfSession session = new StreamingGltfSession(
+                tempDir, "batched-block-entities", Map.of())) {
+            session.append(new ChunkBatch(List.of(first), List.of(), BatchCounters.ZERO));
+            session.append(new ChunkBatch(List.of(second), List.of(), BatchCounters.ZERO));
+            statistics = session.finish();
+        }
+
+        JsonObject document = JsonParser.parseString(Files.readString(
+                tempDir.resolve("batched-block-entities.gltf"))).getAsJsonObject();
+        assertEquals(1L, statistics.nodeCount());
+        assertEquals(2L, statistics.primitiveCount());
+        assertEquals(1, document.getAsJsonArray("meshes").size());
+        assertEquals(2, document.getAsJsonArray("meshes").get(0)
+                .getAsJsonObject().getAsJsonArray("primitives").size());
+        assertEquals(1L, nodesNamed(document, "BlockEntities/material_0000"));
+        JsonObject mergedNode = nodeNamed(document, "BlockEntities/material_0000");
+        assertEquals("GLOBAL_MATERIAL", mergedNode.getAsJsonObject("extras")
+                .get("mergePolicy").getAsString());
+        assertEquals("minecraft:block/stone", mergedNode.getAsJsonObject("extras")
+                .get("materialSourceId").getAsString());
+    }
+
+    @Test
+    void separatesBlockEntityMaterialsAndKeepsOrdinaryEntitiesIndependent() throws Exception {
+        PrimitiveData stone = GltfDocumentBuilderTest.triangle();
+        PrimitiveData dirt = withMaterial(stone, material(
+                "minecraft:block/dirt", "textures/minecraft/block/dirt.png"));
+        CapturedNode stoneBlockEntity = new CapturedNode(
+                "create:belt/10,64,20", CapturedNode.Kind.BLOCK_ENTITY,
+                List.of(stone), Map.of());
+        CapturedNode dirtBlockEntity = new CapturedNode(
+                "create:belt/11,64,20", CapturedNode.Kind.BLOCK_ENTITY,
+                List.of(dirt), Map.of());
+        CapturedNode firstEntity = new CapturedNode(
+                "minecraft:pig/first", CapturedNode.Kind.ENTITY,
+                List.of(stone), Map.of());
+        CapturedNode secondEntity = new CapturedNode(
+                "minecraft:pig/second", CapturedNode.Kind.ENTITY,
+                List.of(stone), Map.of());
+
+        StreamingGltfSession.OutputStatistics statistics;
+        try (StreamingGltfSession session = new StreamingGltfSession(
+                tempDir, "batch-boundaries", Map.of())) {
+            session.append(new ChunkBatch(
+                    List.of(stoneBlockEntity, dirtBlockEntity, firstEntity, secondEntity),
+                    List.of(), BatchCounters.ZERO));
+            statistics = session.finish();
+        }
+
+        JsonObject document = JsonParser.parseString(Files.readString(
+                tempDir.resolve("batch-boundaries.gltf"))).getAsJsonObject();
+        assertEquals(4L, statistics.nodeCount());
+        assertEquals(4, document.getAsJsonArray("meshes").size());
+        assertEquals(1L, nodesNamed(document, "BlockEntities/material_0000"));
+        assertEquals(1L, nodesNamed(document, "BlockEntities/material_0001"));
+        assertEquals(1L, nodesNamed(document, "minecraft:pig/first"));
+        assertEquals(1L, nodesNamed(document, "minecraft:pig/second"));
+    }
+
+    @Test
     void omitsColorAttributeForOpaqueWhiteVertices() throws Exception {
         JsonObject document = exportPrimitive(
                 "white", GltfDocumentBuilderTest.triangle());
@@ -170,6 +240,21 @@ class StreamingGltfSessionTest {
                 .anyMatch(message -> message.contains("Missing external resource")));
     }
 
+    private static long nodesNamed(JsonObject document, String name) {
+        return StreamSupport.stream(document.getAsJsonArray("nodes").spliterator(), false)
+                .map(JsonElement::getAsJsonObject)
+                .filter(node -> node.has("name") && node.get("name").getAsString().equals(name))
+                .count();
+    }
+
+    private static JsonObject nodeNamed(JsonObject document, String name) {
+        return StreamSupport.stream(document.getAsJsonArray("nodes").spliterator(), false)
+                .map(JsonElement::getAsJsonObject)
+                .filter(node -> node.has("name") && node.get("name").getAsString().equals(name))
+                .findFirst()
+                .orElseThrow();
+    }
+
     private JsonObject exportPrimitive(String name, PrimitiveData primitive) throws Exception {
         CapturedNode node = new CapturedNode(
                 name, CapturedNode.Kind.ENTITY, List.of(primitive), Map.of());
@@ -185,6 +270,17 @@ class StreamingGltfSessionTest {
     private static JsonObject firstPrimitive(JsonObject document) {
         return document.getAsJsonArray("meshes").get(0).getAsJsonObject()
                 .getAsJsonArray("primitives").get(0).getAsJsonObject();
+    }
+
+    private static MaterialKey material(String sourceId, String outputPath) {
+        return new MaterialKey(
+                new TextureKey(TextureKey.Kind.RESOURCE, sourceId, outputPath),
+                MaterialKey.AlphaMode.OPAQUE,
+                Optional.empty(),
+                false,
+                false,
+                MaterialKey.BlendSemantic.STANDARD,
+                MaterialKey.SamplerMode.NEAREST);
     }
 
     private static MaterialKey overlayMaterial() {
