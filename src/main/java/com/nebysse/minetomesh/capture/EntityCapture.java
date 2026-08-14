@@ -200,9 +200,9 @@ public final class EntityCapture {
         Map<String, Object> extras = extras(entity, selection, registryId, uuid, rendererClass);
         extras.put("fallbackReason", code);
         AABB box = entity.getBoundingBox().inflate(PLACEHOLDER_INFLATION);
-        Vec3f min = localPosition(box.minX, box.minY, box.maxZ, selection);
-        Vec3f max = localPosition(box.maxX, box.maxY, box.minZ, selection);
-        CapturedNode placeholder = PlaceholderFactory.create(objectId, min, max, extras);
+        CaptureCoordinates.Bounds bounds = CaptureCoordinates.localBounds(box, selection);
+        CapturedNode placeholder = PlaceholderFactory.create(
+                objectId, bounds.min(), bounds.max(), extras);
         Diagnostic diagnostic = diagnostic(
                 Diagnostic.Severity.FAILURE,
                 code,
@@ -220,14 +220,12 @@ public final class EntityCapture {
             Entity entity,
             Selection selection,
             EntityRenderer<? super Entity> renderer) {
-        PoseStack poseStack = new PoseStack();
         Vec3 offset = renderer.getRenderOffset(entity, 0.0F);
-        poseStack.translate(
-                entity.getX() - selection.min().x() + offset.x,
-                entity.getY() - selection.min().y() + offset.y,
-                -(entity.getZ() - selection.min().z() + offset.z));
-        poseStack.scale(1.0F, 1.0F, -1.0F);
-        return poseStack;
+        return CaptureCoordinates.translatedPose(CaptureCoordinates.localPosition(
+                entity.getX() + offset.x,
+                entity.getY() + offset.y,
+                entity.getZ() + offset.z,
+                selection));
     }
 
     @SuppressWarnings("unchecked")
@@ -246,17 +244,11 @@ public final class EntityCapture {
         extras.put("registryId", registryId);
         extras.put("uuid", uuid);
         extras.put("worldPosition", List.of(entity.getX(), entity.getY(), entity.getZ()));
-        Vec3f local = localPosition(entity.getX(), entity.getY(), entity.getZ(), selection);
+        Vec3f local = CaptureCoordinates.localPosition(
+                entity.getX(), entity.getY(), entity.getZ(), selection);
         extras.put("localPosition", List.of(local.x(), local.y(), local.z()));
         extras.put("rendererClass", rendererClass == null ? "" : rendererClass);
         return extras;
-    }
-
-    private static Vec3f localPosition(double x, double y, double z, Selection selection) {
-        return new Vec3f(
-                (float) (x - selection.min().x()),
-                (float) (y - selection.min().y()),
-                (float) -(z - selection.min().z()));
     }
 
     private static EntityCategory category(Entity entity) {
