@@ -22,12 +22,17 @@ import java.util.Objects;
 
 public final class StreamingObjSession implements Closeable {
     private static final String OVERLAY_FAILURE = "GLOBAL_OVERLAY_SPOOL_FAILED";
+    private static final String BLOCK_ENTITY_FAILURE =
+            "GLOBAL_BLOCK_ENTITY_SPOOL_FAILED";
 
     private final Path objPath;
     private final Path mtlPath;
     private final Path overlayFragmentPath;
+    private final String fileName;
     private final BufferedWriter writer;
     private final Map<MaterialKey, String> materialNames = new LinkedHashMap<>();
+    private final Map<MaterialKey, BlockEntitySpool> blockEntitySpools =
+            new LinkedHashMap<>();
     private BufferedWriter overlayWriter;
     private long vertexCount;
     private long nodeCount;
@@ -41,7 +46,7 @@ public final class StreamingObjSession implements Closeable {
     public StreamingObjSession(Path root, String name) throws IOException {
         Path normalizedRoot = Objects.requireNonNull(root, "root")
                 .toAbsolutePath().normalize();
-        String fileName = Objects.requireNonNull(name, "name");
+        fileName = Objects.requireNonNull(name, "name");
         Files.createDirectories(normalizedRoot);
         objPath = normalizedRoot.resolve(fileName + ".obj");
         mtlPath = normalizedRoot.resolve(fileName + ".mtl");
@@ -61,6 +66,8 @@ public final class StreamingObjSession implements Closeable {
             }
             if (node.kind() == CapturedNode.Kind.OVERLAY) {
                 writeOverlay(node);
+            } else if (node.kind() == CapturedNode.Kind.BLOCK_ENTITY) {
+                writeBlockEntityNode(node);
             } else {
                 writeOrdinaryNode(node);
             }
@@ -89,6 +96,46 @@ public final class StreamingObjSession implements Closeable {
         }
         if (wrotePrimitive) {
             nodeCount = Math.addExact(nodeCount, 1L);
+        }
+    }
+
+    private void writeBlockEntityNode(CapturedNode node) throws IOException {
+        try {
+            for (PrimitiveData primitive : node.primitives()) {
+                List<int[]> faces = ObjTopologyConverter.faces(primitive);
+                List<int[]> lines = ObjTopologyConverter.lines(primitive);
+                if (faces.isEmpty() && lines.isEmpty()) {
+                    continue;
+                }
+                BlockEntitySpool spool = blockEntitySpool(primitive.material());
+                writeVertices(spool.writer, primitive.vertices());
+                writeRelativeTopology(
+                        spool.writer, faces, lines, primitive.vertices().size());
+                primitiveCount = Math.addExact(primitiveCount, 1L);
+            }
+        } catch (IOException exception) {
+            throw blockEntityFailure(exception);
+        }
+    }
+
+    private BlockEntitySpool blockEntitySpool(MaterialKey material) throws IOException {
+        BlockEntitySpool existing = blockEntitySpools.get(material);
+        if (existing != null) {
+            return existing;
+        }
+        String materialName = materialName(material);
+        Path path = objPath.getParent().resolve(
+                "." + fileName + "-block-entities-" + materialName + ".objpart");
+        try {
+            BufferedWriter fragment = Files.newBufferedWriter(
+                    path, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            BlockEntitySpool created = new BlockEntitySpool(
+                    materialName, path, fragment);
+            blockEntitySpools.put(material, created);
+            return created;
+        } catch (IOException exception) {
+            throw blockEntityFailure(exception);
         }
     }
 
@@ -182,37 +229,82 @@ public final class StreamingObjSession implements Closeable {
 
     public OutputStatistics finish() throws IOException {
         requireOpen();
+        OutputStatistics result = null;
+        IOException failure = null;
         try {
+            IOException blockEntityCloseFailure = closeBlockEntityWriters();
+            if (blockEntityCloseFailure != null) {
+                throw blockEntityCloseFailure;
+            }
             closeOverlayWriter();
+            writeBlockEntityObjects();
             if (overlayWritten) {
                 writer.write("\no " + ObjNames.sanitize(
                         BlockPrimitiveRouter.OVERLAY_OBJECT_NAME) + "\n");
-                copyOverlayFragment();
+                copyFragment(overlayFragmentPath);
             }
             writer.close();
             writeMaterials();
             finished = true;
             closed = true;
-            return new OutputStatistics(
+            result = new OutputStatistics(
                     nodeCount, primitiveCount, faceCount, lineCount, objPath, mtlPath);
         } catch (IOException exception) {
-            if (overlayWritten || Files.exists(overlayFragmentPath)) {
-                throw overlayFailure(exception);
-            }
-            throw exception;
+            failure = classifyFinishFailure(exception);
         } finally {
-            Files.deleteIfExists(overlayFragmentPath);
+            IOException cleanupFailure = deleteSpools();
+            if (failure == null) {
+                failure = cleanupFailure;
+            } else if (cleanupFailure != null) {
+                failure.addSuppressed(cleanupFailure);
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+        return Objects.requireNonNull(result, "result");
+    }
+
+    private void writeBlockEntityObjects() throws IOException {
+        try {
+            for (BlockEntitySpool spool : blockEntitySpools.values()) {
+                String objectName = "BlockEntities_" + spool.materialName;
+                writer.write("\no " + objectName + "\n");
+                writer.write("g " + objectName + "\n");
+                writer.write("usemtl " + spool.materialName + "\n");
+                copyFragment(spool.path);
+                nodeCount = Math.addExact(nodeCount, 1L);
+            }
+        } catch (IOException exception) {
+            throw blockEntityFailure(exception);
         }
     }
 
-    private void copyOverlayFragment() throws IOException {
+    private void copyFragment(Path path) throws IOException {
         try (Reader reader = new BufferedReader(Files.newBufferedReader(
-                overlayFragmentPath, StandardCharsets.UTF_8))) {
+                path, StandardCharsets.UTF_8))) {
             char[] buffer = new char[8192];
             for (int read; (read = reader.read(buffer)) >= 0; ) {
                 writer.write(buffer, 0, read);
             }
         }
+    }
+
+    private IOException closeBlockEntityWriters() {
+        IOException failure = null;
+        for (BlockEntitySpool spool : blockEntitySpools.values()) {
+            if (spool.writer == null) {
+                continue;
+            }
+            BufferedWriter fragment = spool.writer;
+            spool.writer = null;
+            try {
+                fragment.close();
+            } catch (IOException exception) {
+                failure = combine(failure, blockEntityFailure(exception));
+            }
+        }
+        return failure;
     }
 
     private void closeOverlayWriter() throws IOException {
@@ -221,6 +313,35 @@ public final class StreamingObjSession implements Closeable {
             overlayWriter = null;
             fragment.close();
         }
+    }
+
+    private IOException deleteSpools() {
+        IOException failure = null;
+        try {
+            Files.deleteIfExists(overlayFragmentPath);
+        } catch (IOException exception) {
+            failure = combine(failure, overlayFailure(exception));
+        }
+        for (BlockEntitySpool spool : blockEntitySpools.values()) {
+            try {
+                Files.deleteIfExists(spool.path);
+            } catch (IOException exception) {
+                failure = combine(failure, blockEntityFailure(exception));
+            }
+        }
+        return failure;
+    }
+
+    private IOException classifyFinishFailure(IOException exception) {
+        String message = exception.getMessage();
+        if (message != null && (message.startsWith(OVERLAY_FAILURE)
+                || message.startsWith(BLOCK_ENTITY_FAILURE))) {
+            return exception;
+        }
+        if (overlayWritten || Files.exists(overlayFragmentPath)) {
+            return overlayFailure(exception);
+        }
+        return exception;
     }
 
     private static void writeVertices(
@@ -277,6 +398,25 @@ public final class StreamingObjSession implements Closeable {
                 + (cause.getMessage() == null ? cause.getClass().getName() : cause.getMessage()), cause);
     }
 
+    private static IOException blockEntityFailure(IOException cause) {
+        if (cause.getMessage() != null && cause.getMessage().startsWith(BLOCK_ENTITY_FAILURE)) {
+            return cause;
+        }
+        return new IOException(BLOCK_ENTITY_FAILURE + ": "
+                + (cause.getMessage() == null ? cause.getClass().getName() : cause.getMessage()), cause);
+    }
+
+    private static IOException combine(IOException existing, IOException additional) {
+        if (additional == null) {
+            return existing;
+        }
+        if (existing == null) {
+            return additional;
+        }
+        existing.addSuppressed(additional);
+        return existing;
+    }
+
     private void requireOpen() {
         if (closed || finished) {
             throw new IllegalStateException("Streaming OBJ session is closed");
@@ -289,33 +429,33 @@ public final class StreamingObjSession implements Closeable {
             return;
         }
         closed = true;
-        IOException failure = null;
+        IOException failure = closeBlockEntityWriters();
         try {
             closeOverlayWriter();
         } catch (IOException exception) {
-            failure = overlayFailure(exception);
+            failure = combine(failure, overlayFailure(exception));
         }
         try {
             writer.close();
         } catch (IOException exception) {
-            if (failure == null) {
-                failure = exception;
-            } else {
-                failure.addSuppressed(exception);
-            }
+            failure = combine(failure, exception);
         }
-        try {
-            Files.deleteIfExists(overlayFragmentPath);
-        } catch (IOException exception) {
-            IOException wrapped = overlayFailure(exception);
-            if (failure == null) {
-                failure = wrapped;
-            } else {
-                failure.addSuppressed(wrapped);
-            }
-        }
+        failure = combine(failure, deleteSpools());
         if (failure != null) {
             throw failure;
+        }
+    }
+
+    private static final class BlockEntitySpool {
+        private final String materialName;
+        private final Path path;
+        private BufferedWriter writer;
+
+        private BlockEntitySpool(
+                String materialName, Path path, BufferedWriter writer) {
+            this.materialName = Objects.requireNonNull(materialName, "materialName");
+            this.path = Objects.requireNonNull(path, "path");
+            this.writer = Objects.requireNonNull(writer, "writer");
         }
     }
 
