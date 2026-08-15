@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.nebysse.minetomesh.scene.BatchCounters;
 import com.nebysse.minetomesh.scene.Diagnostic;
+import com.nebysse.minetomesh.scene.GeometryAdjustmentStats;
 import com.nebysse.minetomesh.world.BlockPoint;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +34,9 @@ class ReportWriterTest {
                 100L,
                 120L,
                 new BatchCounters(4096, 10, 2, 1, 3, 4, 5, 6, 1),
+                new GeometryAdjustmentStats(3, 5, 3, Map.of(
+                        "minecraft:grass_block", 2L,
+                        "minecraft:powered_rail", 1L)),
                 List.of(new ExportReport.MissingChunk(2, 1), new ExportReport.MissingChunk(-1, 4)),
                 List.of(
                         diagnostic("Z_CODE", "b", 2),
@@ -43,10 +47,16 @@ class ReportWriterTest {
         Path output = ReportWriter.write(tempDir, report);
         JsonObject json = JsonParser.parseString(Files.readString(output)).getAsJsonObject();
 
-        assertEquals(2, json.get("schemaVersion").getAsInt());
+        assertEquals(3, json.get("schemaVersion").getAsInt());
         assertEquals("completed_with_warnings", json.get("status").getAsString());
         assertEquals(4096L, json.get("volume").getAsLong());
         assertEquals(10L, json.getAsJsonObject("counters").get("renderedBlocks").getAsLong());
+        JsonObject adjustments = json.getAsJsonObject("geometryAdjustments");
+        assertEquals(3L, adjustments.get("coplanarGroups").getAsLong());
+        assertEquals(5L, adjustments.get("offsetFaces").getAsLong());
+        assertEquals(3, adjustments.get("maxLayers").getAsInt());
+        assertEquals(2L, adjustments.getAsJsonObject("byBlock")
+                .get("minecraft:grass_block").getAsLong());
         JsonArray missing = json.getAsJsonArray("missingChunks");
         assertEquals(-1, missing.get(0).getAsJsonObject().get("chunkX").getAsInt());
         assertEquals(2, missing.get(1).getAsJsonObject().get("chunkX").getAsInt());

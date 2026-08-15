@@ -7,6 +7,7 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.nebysse.minetomesh.scene.BatchCounters;
 import com.nebysse.minetomesh.scene.Diagnostic;
+import com.nebysse.minetomesh.scene.GeometryAdjustmentStats;
 import com.nebysse.minetomesh.world.BlockPoint;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -57,6 +58,7 @@ public final class ReportWriter {
         json.addProperty("startGameTime", report.startGameTime());
         json.addProperty("endGameTime", report.endGameTime());
         json.add("counters", counters(report.counters()));
+        json.add("geometryAdjustments", adjustments(report.geometryAdjustments()));
 
         JsonArray missingChunks = new JsonArray();
         report.missingChunks().stream().sorted().forEach(chunk -> {
@@ -90,6 +92,17 @@ public final class ReportWriter {
         json.addProperty("textures", counters.textures());
         json.addProperty("triangles", counters.triangles());
         json.addProperty("placeholders", counters.placeholders());
+        return json;
+    }
+
+    private static JsonObject adjustments(GeometryAdjustmentStats adjustments) {
+        JsonObject json = new JsonObject();
+        json.addProperty("coplanarGroups", adjustments.coplanarGroups());
+        json.addProperty("offsetFaces", adjustments.offsetFaces());
+        json.addProperty("maxLayers", adjustments.maxLayers());
+        JsonObject byBlock = new JsonObject();
+        adjustments.byBlock().forEach(byBlock::addProperty);
+        json.add("byBlock", byBlock);
         return json;
     }
 

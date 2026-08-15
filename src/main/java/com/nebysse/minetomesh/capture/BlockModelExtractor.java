@@ -5,6 +5,7 @@ import com.nebysse.minetomesh.material.MaterialResolver;
 import com.nebysse.minetomesh.scene.BatchCounters;
 import com.nebysse.minetomesh.scene.CoordinateTransform;
 import com.nebysse.minetomesh.scene.Diagnostic;
+import com.nebysse.minetomesh.scene.GeometryAdjustmentStats;
 import com.nebysse.minetomesh.scene.MaterialKey;
 import com.nebysse.minetomesh.scene.PrimitiveAccumulator;
 import com.nebysse.minetomesh.scene.Vertex;
@@ -77,13 +78,16 @@ public final class BlockModelExtractor {
         Objects.requireNonNull(overlayAccumulator, "overlayAccumulator");
         BlockState state = level.getBlockState(position);
         if (state.isAir() || state.getRenderShape() != RenderShape.MODEL) {
-            return new CaptureResult(CaptureState.EMPTY, BatchCounters.ZERO, List.of());
+            return new CaptureResult(CaptureState.EMPTY, BatchCounters.ZERO, List.of(),
+                    GeometryAdjustmentStats.ZERO);
         }
 
         String objectId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         List<PendingStream> pending = new ArrayList<>();
         List<Diagnostic> diagnostics = new ArrayList<>();
         Set<String> inspectedRenderTypes = new HashSet<>();
+        CoplanarQuadLayering.Statistics layeringStats = CoplanarQuadLayering.Statistics.ZERO;
+        GeometryAdjustmentStats adjustments = GeometryAdjustmentStats.ZERO;
         try {
             BakedModel model = Minecraft.getInstance().getBlockRenderer().getBlockModel(state);
             ModelData data = model.getModelData(level, position, state, level.getModelData(position));
@@ -114,6 +118,20 @@ public final class BlockModelExtractor {
                     }
                 }
             }
+            CoplanarQuadLayering.Result layered = CoplanarQuadLayering.apply(
+                    pending.stream().map(PendingStream::vertices).toList());
+            for (int index = 0; index < pending.size(); index++) {
+                PendingStream source = pending.get(index);
+                pending.set(index, new PendingStream(
+                        source.material(), source.mode(),
+                        layered.quads().get(index), source.route()));
+            }
+            layeringStats = layered.statistics();
+            adjustments = GeometryAdjustmentStats.forBlock(
+                    objectId,
+                    layeringStats.coplanarGroups(),
+                    layeringStats.offsetFaces(),
+                    layeringStats.maxLayers());
         } catch (Exception exception) {
             diagnostics.add(new Diagnostic(
                     Diagnostic.Severity.FAILURE,
@@ -124,7 +142,21 @@ public final class BlockModelExtractor {
                     "",
                     exception.getClass().getName(),
                     exception.getMessage() == null ? "Block model capture failed" : exception.getMessage()));
-            return new CaptureResult(CaptureState.FAILED, BatchCounters.ZERO, diagnostics);
+            return new CaptureResult(CaptureState.FAILED, BatchCounters.ZERO, diagnostics,
+                    GeometryAdjustmentStats.ZERO);
+        }
+
+        if (layeringStats.invalidNormals() > 0) {
+            diagnostics.add(new Diagnostic(
+                    Diagnostic.Severity.WARNING,
+                    "COPLANAR_FACE_NORMAL_INVALID",
+                    objectId,
+                    Optional.of(new com.nebysse.minetomesh.world.BlockPoint(
+                            selection.min().dimension(), position.getX(), position.getY(), position.getZ())),
+                    "",
+                    "",
+                    "Could not offset " + layeringStats.invalidNormals()
+                            + " coincident face layer(s) because their normals were degenerate"));
         }
 
         for (PendingStream stream : pending) {
@@ -139,7 +171,7 @@ public final class BlockModelExtractor {
                         pending.size() * 2L, 0);
         CaptureState captureState = pending.isEmpty()
                 ? CaptureState.EMPTY : CaptureState.GEOMETRY;
-        return new CaptureResult(captureState, counters, diagnostics);
+        return new CaptureResult(captureState, counters, diagnostics, adjustments);
     }
 
     private PendingStream captureQuad(
@@ -304,11 +336,20 @@ public final class BlockModelExtractor {
     public record CaptureResult(
             CaptureState state,
             BatchCounters counters,
-            List<Diagnostic> diagnostics) {
+            List<Diagnostic> diagnostics,
+            GeometryAdjustmentStats adjustments) {
         public CaptureResult {
             Objects.requireNonNull(state, "state");
             Objects.requireNonNull(counters, "counters");
             diagnostics = List.copyOf(diagnostics);
+            Objects.requireNonNull(adjustments, "adjustments");
+        }
+
+        public CaptureResult(
+                CaptureState state,
+                BatchCounters counters,
+                List<Diagnostic> diagnostics) {
+            this(state, counters, diagnostics, GeometryAdjustmentStats.ZERO);
         }
 
         public boolean hasGeometry() {

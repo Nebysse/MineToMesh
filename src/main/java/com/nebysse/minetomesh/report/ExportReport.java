@@ -2,6 +2,7 @@ package com.nebysse.minetomesh.report;
 
 import com.nebysse.minetomesh.scene.BatchCounters;
 import com.nebysse.minetomesh.scene.Diagnostic;
+import com.nebysse.minetomesh.scene.GeometryAdjustmentStats;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,7 @@ public record ExportReport(
         long startGameTime,
         long endGameTime,
         BatchCounters counters,
+        GeometryAdjustmentStats geometryAdjustments,
         List<MissingChunk> missingChunks,
         List<Diagnostic> diagnostics,
         Map<String, Long> timingsMillis) {
@@ -33,13 +35,14 @@ public record ExportReport(
             throw new IllegalArgumentException("Volume must not be negative");
         }
         Objects.requireNonNull(counters, "counters");
+        Objects.requireNonNull(geometryAdjustments, "geometryAdjustments");
         missingChunks = List.copyOf(missingChunks);
         diagnostics = List.copyOf(diagnostics);
         timingsMillis = Collections.unmodifiableMap(new TreeMap<>(timingsMillis));
     }
 
     public int schemaVersion() {
-        return 2;
+        return 3;
     }
 
     @Override
