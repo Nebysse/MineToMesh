@@ -1,6 +1,7 @@
 package com.nebysse.minetomesh.output;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nebysse.minetomesh.scene.BatchCounters;
@@ -33,13 +34,14 @@ class StreamingSceneSessionTest {
             session.append(batchWithOneQuad());
             StreamingSceneSession.OutputStatistics output = session.finish();
             assertEquals(1, output.gltf().primitiveCount());
-            assertEquals(1, output.obj().primitiveCount());
+            assertEquals(1, output.usda().primitiveCount());
         }
 
         assertTrue(Files.exists(tempDir.resolve("sample.gltf")));
         assertTrue(Files.exists(tempDir.resolve("sample.bin")));
-        assertTrue(Files.exists(tempDir.resolve("sample.obj")));
-        assertTrue(Files.exists(tempDir.resolve("sample.mtl")));
+        assertTrue(Files.exists(tempDir.resolve("sample.usda")));
+        assertFalse(Files.exists(tempDir.resolve("sample.obj")));
+        assertFalse(Files.exists(tempDir.resolve("sample.mtl")));
     }
 
     private static ChunkBatch batchWithOneQuad() {

@@ -25,6 +25,7 @@ import com.nebysse.minetomesh.scene.BatchCounters;
 import com.nebysse.minetomesh.scene.CapturedNode;
 import com.nebysse.minetomesh.scene.ChunkBatch;
 import com.nebysse.minetomesh.scene.Diagnostic;
+import com.nebysse.minetomesh.scene.GeometryAdjustmentStats;
 import com.nebysse.minetomesh.scene.MaterialKey;
 import com.nebysse.minetomesh.scene.PrimitiveAccumulator;
 import com.nebysse.minetomesh.scene.PrimitiveMode;
@@ -163,9 +164,9 @@ public final class DefaultExportPipeline {
                 .sorted()
                 .toList());
         extras.put("snapshotMode", "rolling_client_snapshot");
-        extras.put("formats", List.of("gltf", "obj"));
+        extras.put("formats", List.of("gltf", "usda"));
         extras.put("includePlayers", options.includePlayers());
-        extras.put("sourceTopologyPreservedInObj", true);
+        extras.put("sourceTopologyPreservedInUsda", true);
         return extras;
     }
 
@@ -241,6 +242,7 @@ public final class DefaultExportPipeline {
             private final List<CapturedNode> nodes = new ArrayList<>();
             private final List<Diagnostic> diagnostics = new ArrayList<>();
             private BatchCounters counters = BatchCounters.ZERO;
+            private GeometryAdjustmentStats adjustments = GeometryAdjustmentStats.ZERO;
             private long next;
 
             private SectionCursor(ExportPlan.SectionWork work) {
@@ -269,6 +271,7 @@ public final class DefaultExportPipeline {
                 BlockModelExtractor.CaptureResult block = blocks.capture(
                         level, position, plan.selection(), accumulator, overlayAccumulator);
                 counters = counters.plus(block.counters());
+                adjustments = adjustments.plus(block.adjustments());
                 diagnostics.addAll(block.diagnostics());
 
                 FluidGeometryCapture.CaptureResult fluid = fluids.capture(
@@ -331,7 +334,7 @@ public final class DefaultExportPipeline {
                                     "scope", "selection",
                                     "sourceTexture", BlockPrimitiveRouter.GRASS_SIDE_OVERLAY_ID)));
                 }
-                return new ChunkBatch(nodes, diagnostics, counters);
+                return new ChunkBatch(nodes, diagnostics, counters, adjustments);
             }
 
             private BlockPos position(long index) {
@@ -463,6 +466,7 @@ public final class DefaultExportPipeline {
                 long startGameTime) {
             List<Diagnostic> diagnostics = new ArrayList<>();
             BatchCounters counters = BatchCounters.ZERO;
+            GeometryAdjustmentStats adjustments = GeometryAdjustmentStats.ZERO;
             Set<MaterialKey> materials = new LinkedHashSet<>();
             long endGameTime = startGameTime;
             telemetry.writerStage(ExportTelemetry.WriterStage.DRAINING);
@@ -482,6 +486,7 @@ public final class DefaultExportPipeline {
                     session.append(batch);
                     diagnostics.addAll(batch.diagnostics());
                     counters = counters.plus(batch.counters());
+                    adjustments = adjustments.plus(batch.adjustments());
                     batch.nodes().forEach(node -> node.primitives()
                             .forEach(primitive -> materials.add(primitive.material())));
                 }
@@ -512,7 +517,7 @@ public final class DefaultExportPipeline {
                 telemetry.writerStage(ExportTelemetry.WriterStage.REPORT);
                 ReportWriter.write(transaction.temporaryDirectory(), report(
                         status, plan, startGameTime, endGameTime,
-                        finalCounters, diagnostics));
+                        finalCounters, adjustments, diagnostics));
                 if (fatal) {
                     result.set(ExportJob.WriterResult.failure(
                             "Internal glTF validation failed with " + validationErrors.size() + " error(s)"));
@@ -606,6 +611,7 @@ public final class DefaultExportPipeline {
             long startGameTime,
             long endGameTime,
             BatchCounters counters,
+            GeometryAdjustmentStats adjustments,
             List<Diagnostic> diagnostics) {
         Selection selection = plan.selection();
         return new ExportReport(
@@ -619,6 +625,7 @@ public final class DefaultExportPipeline {
                 startGameTime,
                 endGameTime,
                 counters,
+                adjustments,
                 plan.missingChunks().stream()
                         .map(chunk -> new ExportReport.MissingChunk(chunk.chunkX(), chunk.chunkZ()))
                         .toList(),

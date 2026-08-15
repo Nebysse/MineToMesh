@@ -12,7 +12,7 @@ class MineToMeshMetadataTest {
     void exposesMineToMeshReleaseIdentity() {
         assertEquals("minetomesh", MineToMesh.MOD_ID);
         assertEquals("MineToMesh", MineToMesh.DISPLAY_NAME);
-        assertEquals("1.1.0", MineToMesh.VERSION);
+        assertEquals("1.2.0", MineToMesh.VERSION);
     }
 
     @Test
@@ -22,7 +22,7 @@ class MineToMeshMetadataTest {
                 "/META-INF/neoforge.mods.toml")) {
             metadata = new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
-        assertTrue(metadata.contains("version=\"1.1.0\""));
+        assertTrue(metadata.contains("version=\"1.2.0\""));
         assertTrue(metadata.contains("authors=\"岚苍穹 nebysse\""));
         assertFalse(metadata.contains("authors=\"OneCuber\""));
         assertFalse(metadata.contains("side=\"CLIENT\""));

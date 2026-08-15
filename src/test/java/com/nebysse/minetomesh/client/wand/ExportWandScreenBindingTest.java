@@ -24,6 +24,24 @@ class ExportWandScreenBindingTest {
     }
 
     @Test
+    void lockToggleIsLocalAndIndependentFromWandPayloads() throws Exception {
+        String source = Files.readString(projectRoot().resolve(
+                "src/main/java/com/nebysse/minetomesh/client/wand/ExportWandScreen.java"),
+                StandardCharsets.UTF_8);
+        assertTrue(source.contains("LockedSelectionService lockedSelectionService"));
+        assertTrue(source.contains("this.lockedSelectionService = Objects.requireNonNull("));
+        assertTrue(source.contains("toggleLockedSelection()"));
+        assertTrue(source.contains("Component.literal(\"手持预览\")"));
+        assertTrue(source.contains("Component.literal(\"锁定选区\")"));
+        assertTrue(source.contains("Component.literal(\"导出玩家\")"));
+        int method = source.indexOf("private void toggleLockedSelection()");
+        int nextMethod = source.indexOf("\n    private ", method + 1);
+        String body = source.substring(method, nextMethod);
+        assertFalse(body.contains("send("));
+        assertFalse(body.contains("Payload"));
+    }
+
+    @Test
     void screenConsumesGameBindingsAndRoutesTextDirectlyToFocusedEditor() throws Exception {
         String source = Files.readString(projectRoot().resolve(
                 "src/main/java/com/nebysse/minetomesh/client/wand/ExportWandScreen.java"),

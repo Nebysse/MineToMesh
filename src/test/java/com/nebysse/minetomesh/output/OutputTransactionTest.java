@@ -58,19 +58,20 @@ class OutputTransactionTest {
         assertAll(
                 () -> assertTrue(Files.exists(output.resolve("sample.gltf"))),
                 () -> assertTrue(Files.exists(output.resolve("sample.bin"))),
-                () -> assertTrue(Files.exists(output.resolve("sample.obj"))),
-                () -> assertTrue(Files.exists(output.resolve("sample.mtl"))),
+                () -> assertTrue(Files.exists(output.resolve("sample.usda"))),
+                () -> assertFalse(Files.exists(output.resolve("sample.obj"))),
+                () -> assertFalse(Files.exists(output.resolve("sample.mtl"))),
                 () -> assertTrue(Files.exists(output.resolve("report.json"))));
     }
 
     @Test
-    void objFinishFailurePublishesNothingAndRemovesTemporaryTree() throws Exception {
+    void usdaFinishFailurePublishesNothingAndRemovesTemporaryTree() throws Exception {
         Path exports = tempDir.resolve("exports");
         Path temporary;
         try (OutputTransaction transaction = OutputTransaction.begin(
                 exports, ExportName.parse("sample"))) {
             temporary = transaction.temporaryDirectory();
-            Files.writeString(temporary.resolve("sample.mtl"), "collision");
+            Files.writeString(temporary.resolve("sample.usda"), "collision");
             assertThrows(IOException.class, () -> {
                 try (StreamingSceneSession scene = new StreamingSceneSession(
                         temporary, "sample", Map.of())) {

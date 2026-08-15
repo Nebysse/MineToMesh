@@ -1,6 +1,9 @@
 package com.nebysse.minetomesh.client;
 
 import com.nebysse.minetomesh.MineToMesh;
+import com.nebysse.minetomesh.client.selection.LockedSelectionService;
+import com.nebysse.minetomesh.client.selection.LockedSelectionStore;
+import com.nebysse.minetomesh.client.selection.WorldProfileKey;
 import com.nebysse.minetomesh.client.wand.ExportWandController;
 import com.nebysse.minetomesh.client.wand.HeldWandOverlaySource;
 import com.nebysse.minetomesh.client.wand.SelectionOverlayRenderer;
@@ -16,10 +19,14 @@ import com.nebysse.minetomesh.job.ManagedJob;
 import com.nebysse.minetomesh.network.WandClientReceiver;
 import com.nebysse.minetomesh.wand.ExportWandMenu;
 import com.nebysse.minetomesh.world.SelectionStore;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Optional;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
+import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -29,25 +36,42 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Mod(value = MineToMesh.MOD_ID, dist = Dist.CLIENT)
 public final class MineToMeshClient {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MineToMesh.MOD_ID);
+
     private final SelectionStore selectionStore = new SelectionStore();
     private final ExportJobManager jobManager = new ExportJobManager();
     private final WandClientInput wandInput = new WandClientInput();
     private final ExportWandController wandController;
+    private final LockedSelectionService lockedSelectionService;
     private final SelectionOverlayRenderer overlayRenderer;
     private final MineToMeshCommands commands;
     private String activeDimension;
     private ManagedJob notifiedTerminalJob;
 
     public MineToMeshClient(IEventBus modBus) {
+        Path lockFile = Minecraft.getInstance().gameDirectory.toPath()
+                .resolve("config").resolve("minetomesh")
+                .resolve("locked-selections.json");
+        LockedSelectionStore lockedSelectionStore;
+        try {
+            lockedSelectionStore = LockedSelectionStore.open(lockFile);
+        } catch (IOException exception) {
+            LOGGER.error("Could not open persistent locked selections", exception);
+            lockedSelectionStore = LockedSelectionStore.empty(lockFile);
+        }
+        lockedSelectionService = new LockedSelectionService(
+                lockedSelectionStore, MineToMeshClient::currentWorldProfile);
         wandController = new ExportWandController(
                 (selection, name, options, telemetry) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name, options, telemetry),
                 ExportWandController.fromManager(jobManager));
         overlayRenderer = new SelectionOverlayRenderer(
-                new HeldWandOverlaySource());
+                new HeldWandOverlaySource(), lockedSelectionService);
         WandClientReceiver.install(wandController::accept, wandController::reject);
         commands = new MineToMeshCommands(selectionStore, jobManager,
                 (selection, name) -> DefaultExportPipeline.create(
@@ -59,6 +83,24 @@ public final class MineToMeshClient {
         NeoForge.EVENT_BUS.addListener(overlayRenderer::onRenderLevel);
         modBus.addListener(this::onRegisterReloadListeners);
         modBus.addListener(this::onRegisterMenuScreens);
+    }
+
+    private static Optional<WorldProfileKey> currentWorldProfile() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.getCurrentServer() != null) {
+            try {
+                return Optional.of(WorldProfileKey.multiplayer(
+                        minecraft.getCurrentServer().ip));
+            } catch (IllegalArgumentException ignored) {
+                return Optional.empty();
+            }
+        }
+        if (minecraft.getSingleplayerServer() != null) {
+            Path worldRoot = minecraft.getSingleplayerServer()
+                    .getWorldPath(LevelResource.ROOT);
+            return Optional.of(WorldProfileKey.singleplayer(worldRoot));
+        }
+        return Optional.empty();
     }
 
     private void onClientTick(ClientTickEvent.Post event) {
@@ -104,7 +146,8 @@ public final class MineToMeshClient {
                             Inventory inventory,
                             Component title) {
                         return new ExportWandScreen(
-                                menu, inventory, title, wandController);
+                                menu, inventory, title, wandController,
+                                lockedSelectionService);
                     }
                 });
     }

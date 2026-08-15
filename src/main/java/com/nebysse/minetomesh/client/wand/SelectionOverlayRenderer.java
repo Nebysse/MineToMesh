@@ -9,7 +9,10 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.nebysse.minetomesh.client.selection.LockedSelectionService;
 import com.nebysse.minetomesh.world.Selection;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
@@ -37,10 +40,14 @@ public final class SelectionOverlayRenderer {
     private static final ResourceLocation FORCEFIELD = ResourceLocation.withDefaultNamespace(
             "textures/misc/forcefield.png");
 
-    private final HeldWandOverlaySource source;
+    private final HeldWandOverlaySource heldSource;
+    private final LockedSelectionService lockedService;
 
-    public SelectionOverlayRenderer(HeldWandOverlaySource source) {
-        this.source = source;
+    public SelectionOverlayRenderer(
+            HeldWandOverlaySource heldSource,
+            LockedSelectionService lockedService) {
+        this.heldSource = Objects.requireNonNull(heldSource, "heldSource");
+        this.lockedService = Objects.requireNonNull(lockedService, "lockedService");
     }
 
     public void onRenderLevel(RenderLevelStageEvent event) {
@@ -53,10 +60,13 @@ public final class SelectionOverlayRenderer {
         if (level == null || player == null) {
             return;
         }
-        Optional<HeldWandOverlaySource.Snapshot> resolved = source.resolveSnapshot(
-                player.getMainHandItem(), player.getOffhandItem(),
-                level.dimension().location());
-        if (resolved.isEmpty()) {
+        ResourceLocation dimension = level.dimension().location();
+        Optional<HeldWandOverlaySource.Snapshot> held = heldSource.resolveSnapshot(
+                player.getMainHandItem(), player.getOffhandItem(), dimension);
+        Optional<HeldWandOverlaySource.Snapshot> locked = lockedService.resolve(dimension);
+        List<HeldWandOverlaySource.Snapshot> snapshots =
+                OverlaySnapshotPolicy.merge(held, locked);
+        if (snapshots.isEmpty()) {
             return;
         }
         PoseStack pose = event.getPoseStack();
@@ -66,13 +76,16 @@ public final class SelectionOverlayRenderer {
         MultiBufferSource.BufferSource buffers =
                 MultiBufferSource.immediate(new ByteBufferBuilder(1536));
         try {
-            HeldWandOverlaySource.Snapshot snapshot = resolved.orElseThrow();
-            snapshot.selection().ifPresent(selection ->
-                    drawSelectionShell(box(selection), pose));
-            snapshot.pos1().ifPresent(pos -> drawEndpoint(
-                    endpointBox(pos), pose, buffers, POS1_RED, POS1_GREEN, POS1_BLUE));
-            snapshot.pos2().ifPresent(pos -> drawEndpoint(
-                    endpointBox(pos), pose, buffers, POS2_RED, POS2_GREEN, POS2_BLUE));
+            for (HeldWandOverlaySource.Snapshot snapshot : snapshots) {
+                snapshot.selection().ifPresent(selection ->
+                        drawSelectionShell(box(selection), pose));
+                snapshot.pos1().ifPresent(pos -> drawEndpoint(
+                        endpointBox(pos), pose, buffers,
+                        POS1_RED, POS1_GREEN, POS1_BLUE));
+                snapshot.pos2().ifPresent(pos -> drawEndpoint(
+                        endpointBox(pos), pose, buffers,
+                        POS2_RED, POS2_GREEN, POS2_BLUE));
+            }
             buffers.endBatch();
         } finally {
             pose.popPose();

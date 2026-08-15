@@ -26,6 +26,31 @@ class ExportWandLayoutTest {
     }
 
     @Test
+    void threeIndependentTogglesAreEqualAndContained() {
+        assertEquals(new ExportWandScreen.Rect(
+                        ExportWandScreen.Layout.LEFT.x() + 12,
+                        ExportWandScreen.Layout.LEFT.y() + 144, 60, 16),
+                ExportWandScreen.Layout.overlayButton());
+        assertEquals(new ExportWandScreen.Rect(
+                        ExportWandScreen.Layout.LEFT.x() + 74,
+                        ExportWandScreen.Layout.LEFT.y() + 144, 60, 16),
+                ExportWandScreen.Layout.lockedSelectionButton());
+        assertEquals(new ExportWandScreen.Rect(
+                        ExportWandScreen.Layout.LEFT.x() + 136,
+                        ExportWandScreen.Layout.LEFT.y() + 144, 60, 16),
+                ExportWandScreen.Layout.includePlayersButton());
+        List<ExportWandScreen.Rect> toggles = List.of(
+                ExportWandScreen.Layout.overlayButton(),
+                ExportWandScreen.Layout.lockedSelectionButton(),
+                ExportWandScreen.Layout.includePlayersButton());
+        for (ExportWandScreen.Rect toggle : toggles) {
+            assertTrue(contains(ExportWandScreen.Layout.LEFT, toggle));
+        }
+        assertFalse(toggles.get(0).intersects(toggles.get(1)));
+        assertFalse(toggles.get(1).intersects(toggles.get(2)));
+    }
+
+    @Test
     void sixFieldsAndTwelveStepButtonsNeverIntersect() {
         List<ExportWandScreen.Rect> controls = new ArrayList<>();
         for (int index = 0; index < 6; index++) {
