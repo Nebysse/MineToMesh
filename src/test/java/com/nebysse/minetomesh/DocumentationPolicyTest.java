@@ -14,7 +14,7 @@ class DocumentationPolicyTest {
     void readmeDocumentsTheWandReleaseAndMigration() throws Exception {
         String readme = read("README.md");
         for (String fragment : List.of(
-                "MineToMesh-1.1.0.jar",
+                "MineToMesh-1.2.0.jar",
                 "客户端和服务端",
                 "导出魔杖",
                 "Shift+右键",
@@ -36,6 +36,13 @@ class DocumentationPolicyTest {
                 "Minecraft `+X` → Blender `+X`",
                 "Minecraft `+Y` → Blender `+Z`",
                 "Minecraft `+Z` → Blender `-Y`",
+                "USDA",
+                "OpenUSD",
+                "Quad",
+                "subdivisionScheme",
+                "Closest",
+                "文件 → 导入 → Universal Scene Description",
+                "1.2.0 不再生成 OBJ/MTL",
                 "模组列表封面")) {
             assertTrue(readme.contains(fragment),
                     "README must mention: " + fragment);
@@ -44,6 +51,7 @@ class DocumentationPolicyTest {
         assertFalse(readme.contains("放置区域导出工作台"));
         assertFalse(readme.contains("/" + "mc" + "gltf pos1"));
         assertFalse(readme.contains("(X,Y,Z) → (X,Y,-Z)"));
+        assertFalse(readme.contains("每次导出同时生成 glTF 2.0 与 OBJ"));
     }
 
     @Test
@@ -64,7 +72,8 @@ class DocumentationPolicyTest {
                 "管理员",
                 "单人模式",
                 "glTF",
-                "OBJ",
+                "USDA",
+                "OpenUSD",
                 "Blender",
                 "Create 连纹",
                 "草侧 Overlay 对象",
@@ -77,7 +86,11 @@ class DocumentationPolicyTest {
                 "命令切换",
                 "输出目录切换",
                 "双端一致性",
-                "非对称坐标方位")) {
+                "非对称坐标方位",
+                "Powered Rail 精确共面",
+                "subdivisionScheme",
+                "Closest",
+                "无 USDA 临时片段")) {
             assertTrue(matrix.contains(fragment),
                     "manual matrix must cover: " + fragment);
         }

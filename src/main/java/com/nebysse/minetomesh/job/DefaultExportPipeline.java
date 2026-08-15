@@ -164,9 +164,9 @@ public final class DefaultExportPipeline {
                 .sorted()
                 .toList());
         extras.put("snapshotMode", "rolling_client_snapshot");
-        extras.put("formats", List.of("gltf", "obj"));
+        extras.put("formats", List.of("gltf", "usda"));
         extras.put("includePlayers", options.includePlayers());
-        extras.put("sourceTopologyPreservedInObj", true);
+        extras.put("sourceTopologyPreservedInUsda", true);
         return extras;
     }
 

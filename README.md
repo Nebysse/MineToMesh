@@ -1,6 +1,6 @@
 # MineToMesh
 
-MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与 OBJ 场景。1.1.0 补全动态方块实体、普通实体和占位网格的右手坐标契约，修复 Create 传送带等动态模型在 Blender 中沿 Y 轴镜像及法线反向的问题，并让动态方块实体在 glTF 与 OBJ 中按完整材质键全局合批。导出魔杖继续负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
+MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与文本 OpenUSD（USDA）场景。1.2.0 增加精确共面 Quad 分层，解决 Powered Rail 和草方块叠层在 Blender 中发黑或闪烁的问题；USDA 保留源 Quad，并通过 PreviewSurface 材质引用外部 PNG。导出魔杖继续负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
 
 ## 特性
 
@@ -11,9 +11,10 @@ MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户
 - 动态方块实体按完整 `MaterialKey` 全局合批；相同材质的连续传送带等几何在 Blender 中形成一个网格对象。
 - 根据 Quad 的实际 Atlas UV 反查真实 Sprite，兼容 Create 6.x `*_connected` 纹理表，不引入 Create、Catnip 或 Flywheel 硬依赖。
 - 原版草方块保留底层侧面与 Tint Overlay 双层几何；整个选区的 Overlay 合并为一个 `selection/grass_side_overlay` 对象。
-- 每次导出同时生成 glTF 2.0 与 OBJ，两种格式共享纹理。
-- glTF 按规范三角化；OBJ 保留捕获到的原始 Quad。
-- 保留 PNG 纹理、顶点色、透明模式、双面和发光语义。
+- 每次导出同时生成 glTF 2.0 与 USDA，两种格式共享外部 PNG 纹理。
+- glTF 按规范三角化；USDA 保留捕获到的原始 Quad，并固定 `subdivisionScheme = "none"`。
+- 精确重叠的普通方块 Quad 按自身法线以 `1/1024` 格逐层偏移；首层位置保持不变，所有叠层几何均保留。
+- USDA 使用 PreviewSurface 表达纹理、顶点 Tint、透明、双面和发光语义；像素纹理使用 `Closest` 缩放回退。
 - 输出层级固定为 `Chunks`、`BlockEntities`、`Entities`、`Placeholders`、`Overlays`。
 - 坐标以选区最小点为局部原点，一格对应 Blender 一米；导出空间保留 Minecraft 的 `(X,Y,Z)` 相对方向，不执行轴反射。
 - Blender 导入 glTF 后执行 Y-up 到 Z-up 的轴旋转：Minecraft `+X` → Blender `+X`、Minecraft `+Y` → Blender `+Z`、Minecraft `+Z` → Blender `-Y`。
@@ -22,10 +23,10 @@ MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户
 ## 安装
 
 1. 安装 Minecraft 1.21.1 与 NeoForge 21.1.244。
-2. 将 `MineToMesh-1.1.0.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
+2. 将 `MineToMesh-1.2.0.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
 3. 启动游戏。实际导出文件写在发起操作的玩家客户端。
 
-1.1.0 的运行时 Mod ID 为 `minetomesh`，Java 根包为 `com.nebysse.minetomesh`。客户端与服务端必须使用同一版本。
+1.2.0 的运行时 Mod ID 为 `minetomesh`，Java 根包为 `com.nebysse.minetomesh`。客户端与服务端必须使用同一版本。
 
 ## 导出魔杖
 
@@ -102,8 +103,7 @@ S
 minetomesh-exports/<名称>/
 ├─ <名称>.gltf
 ├─ <名称>.bin
-├─ <名称>.obj
-├─ <名称>.mtl
+├─ <名称>.usda
 ├─ report.json
 ├─ textures/
 └─ materials/
@@ -113,7 +113,9 @@ minetomesh-exports/<名称>/
 
 ## Blender 导入
 
-在 Blender 中选择“文件 → 导入 → glTF 2.0”打开 `.gltf`，或选择“文件 → 导入 → Wavefront (.obj)”打开 `.obj`。保持 `.gltf`、`.bin`、`.obj`、`.mtl` 与 `textures/` 的相对目录不变。
+在 Blender 5.2 中选择“文件 → 导入 → glTF 2.0”打开 `.gltf`；需要保留 Quad 时，选择“文件 → 导入 → Universal Scene Description”打开 `.usda`。保持 `.gltf`、`.bin`、`.usda` 与 `textures/` 的相对目录不变。USDA 舞台为 Y-Up、`metersPerUnit = 1`，Blender 导入时完成 Y-up 到 Z-up 的轴旋转。PreviewSurface 对 Cutout、Blend、顶点 Tint 和发光的呈现受 Blender USD 导入器能力影响，复杂材质仍建议导入后人工检查。
+
+1.2.0 不再生成 OBJ/MTL，也不提供兼容开关。成功或取消导出后不应残留 `.usdapart` 临时片段。
 
 Flywheel 1.x 等受支持后端会在捕获期间临时进入 CPU 备用渲染作用域，并在 `finally` 路径恢复。纯着色器生成且没有 CPU 几何的对象无法逆向恢复，会生成半透明洋红包围盒并记录诊断码。阴影、火焰、名称文本、Minecraft 光照和 AO 不会烘焙。
 
@@ -127,7 +129,7 @@ npm install
 npm run validate -- ..\run\minetomesh-exports\smoke\smoke.gltf
 ```
 
-真实模组验收建议使用 Create 6.0.10、Flywheel 1.0.6 与 Touhou Little Maid 1.5.3，分别把 glTF 与 OBJ 导入 Blender 5.2，对比原点、尺度、材质、UV 和拓扑，并用 Khronos Validator 要求 `numErrors: 0`。
+真实模组验收建议使用 Create 6.0.10、Flywheel 1.0.6 与 Touhou Little Maid 1.5.3，分别把 glTF 与 USDA 导入 Blender 5.2，对比原点、尺度、材质、UV、Quad 拓扑和 Powered Rail 叠层，并用 Khronos Validator 要求 glTF `numErrors: 0`。
 
 ## 许可证
 

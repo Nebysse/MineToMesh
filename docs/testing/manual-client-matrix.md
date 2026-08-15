@@ -1,6 +1,6 @@
-# MineToMesh 1.1.0 客户端手工验收矩阵
+# MineToMesh 1.2.0 客户端手工验收矩阵
 
-目标环境：Minecraft 1.21.1、NeoForge 21.1.244，客户端和服务端均安装 `MineToMesh-1.1.0.jar`。除权限场景外，使用同一根导出魔杖依次执行，检查声音、物品组件、Overlay、GUI 与导出目录。
+目标环境：Minecraft 1.21.1、NeoForge 21.1.244，客户端和服务端均安装 `MineToMesh-1.2.0.jar`。除权限场景外，使用同一根导出魔杖依次执行，检查声音、物品组件、Overlay、GUI 与导出目录。
 
 ## 0.5.1 硬身份迁移
 
@@ -59,34 +59,40 @@
 
 | 场景 | 设置 | 预期结果 |
 |---|---|---|
-| 原版方块 | 石头、草、树叶、玻璃、水、箱子 | glTF、BIN、OBJ、MTL、纹理和 `report.json` 齐全 |
+| 原版方块 | 石头、草、树叶、玻璃、水、箱子 | glTF、BIN、USDA、纹理和 `report.json` 齐全；不生成 OBJ/MTL |
 | 实体与方块实体 | 牛、盔甲架、箱子、告示牌 | 几何和纹理出现，跳过文本、阴影与火焰 |
 | 模组渲染 | Create 6.0.10、Flywheel 1.0.6、Touhou Little Maid 1.5.3 | 齿轮箱、储液罐和女仆无错误占位符，后端状态恢复 |
 | glTF 导入 | 在 Blender 5.2 导入 `.gltf` | 层级、比例、轴向、材质、UV 正确，面为三角形 |
-| OBJ 导入 | 在 Blender 5.2 导入 `.obj` | 对象与材质正确，捕获到的源 Quad 保留为四边面 |
-| 非对称坐标方位 | 在选区东侧放金块、西侧放钻石块，分别导入 glTF 与 OBJ | 两种格式均无镜像；Minecraft +X 对应 Blender +X，材质、法线和正面方向正确 |
+| USDA / OpenUSD 导入 | 在 Blender 5.2 通过 Universal Scene Description 导入 `.usda` | 源 Quad 保留为四边面，所有 Mesh 均为 `subdivisionScheme = "none"` |
+| 非对称坐标方位 | 在选区东侧放金块、西侧放钻石块，分别导入 glTF 与 USDA | 两种格式均无镜像；Minecraft +X 对应 Blender +X，材质、法线和正面方向正确 |
+| USDA 材质 | 检查草、树叶、玻璃、灯与像素纹理 | PreviewSurface 绑定正常；Tint、Cutout、Blend、发光可辨认；像素纹理使用 `Closest` 回退 |
+| Powered Rail 精确共面 | 导出上下表面完全重叠的充能铁轨并近距离观察 | 所有 Quad 保留；后续层沿自身法线以 `1/1024` 格分层，无黑面与闪烁 |
+| 草侧 Overlay 分层 | 导出草方块侧面并隐藏 Overlay 对象 | 底层与 Tint Overlay 均存在，显示时无 Z-fighting，隐藏后底层仍完整 |
+| 农作物与普通静态块 | 同时导出小麦、交叉面植物和石头 | 非重叠面位置不变，交叉面和普通方块拓扑无额外漂移 |
+| 层级与全局合批 | 检查 Chunks、BlockEntities、Entities、Placeholders、Overlays | 层级完整；Create 方块实体按完整材质键全局合批 |
+| 无 USDA 临时片段 | 完成一次导出并取消一次大选区导出 | 成功目录与临时事务目录均不残留 `.usdapart` |
 | Khronos 校验 | 对 glTF 运行 Validator | `numErrors: 0` |
 | 未加载区块 | 选区跨越视距外区块 | 不强制加载新区块，`report.json` 记录缺失区块 |
 | 同名导出 | 连续导出同名两次 | 生成 `<名称>/` 与 `<名称>-2/` |
 
-## 1.1.0 项目所有者人工视觉/交互验收
+## 1.2.0 项目所有者人工视觉/交互验收
 
 以下项目必须由项目所有者在真实游戏和 Blender 中判断，自动化测试只检查结构，不替代视觉结论。
 
 | 场景 | 操作 | 预期结果 |
 |---|---|---|
 | Create 连纹 | 导出拼接的安山机壳、黄铜机壳、储液罐和保险库 | 游戏与 Blender 中边、角、中心纹理一致，不退回单块重复 |
-| Create 动态模型手性 | 东西向放置十节相连传送带，并在其中一侧放非对称标记；同时加入齿轮、传动杆和机械手，分别导入 glTF 与 OBJ | 动态模型不沿 Blender Y 镜像；Minecraft +Z 仍对应 Blender -Y；传送带正面与顶点法线朝外 |
-| Create 全局材质合批 | 导出十节同材质传送带，再加入一个使用不同材质键的动态部件 | glTF 与 OBJ 中，同一完整 `MaterialKey` 的所有方块实体几何只形成一个网格对象；不同材质键形成独立对象 |
+| Create 动态模型手性 | 东西向放置十节相连传送带，并在其中一侧放非对称标记；同时加入齿轮、传动杆和机械手，分别导入 glTF 与 USDA | 动态模型不沿 Blender Y 镜像；Minecraft +Z 仍对应 Blender -Y；传送带正面与顶点法线朝外 |
+| Create 全局材质合批 | 导出十节同材质传送带，再加入一个使用不同材质键的动态部件 | glTF 与 USDA 中，同一完整 `MaterialKey` 的所有方块实体几何只形成一个网格对象；不同材质键形成独立对象 |
 | 合批边界 | 在同一选区加入牛或盔甲架，并加入普通静态方块 | 方块实体按材质全局合批；普通实体仍各自独立；静态方块仍按 Chunk/Section 结构输出 |
 | 草侧 Overlay 对象 | 导出跨多个 Section 的草地区域 | Outliner 只有一个 `selection/grass_side_overlay`；隐藏后只剩底层侧面 |
 | 英文 E 输入 | 名称框输入 `create_export` | 字符正常进入名称，GUI 不关闭，物品栏不弹出 |
 | 中文输入法 | 名称框输入中文并提交 | 中文名称保存并用于输出目录，快捷键不泄漏 |
 | 关闭后恢复 | Esc 关闭 GUI 后按 E、WASD、1 至 9 | 游戏快捷键立即恢复，无粘滞状态 |
 
-## 1.1.0 候选包验收记录
+## 1.2.0 候选包验收记录
 
 - 自动化：执行 `clean test build`、`ServerClassIsolationTest` 与 `runServerSmoke`。
-- JAR：文件名必须为 `MineToMesh-1.1.0.jar`，必须包含 `assets/minetomesh/`、`data/minetomesh/`、导出魔杖模型、贴图、配方及 77 张 GUI 切片，不得包含旧包路径、旧资源命名空间、`export_workstation`、测试模组或设计文档。
+- JAR：文件名必须为 `MineToMesh-1.2.0.jar`，必须包含 `assets/minetomesh/`、`data/minetomesh/`、导出魔杖模型、贴图、配方及 77 张 GUI 切片，不得包含旧包路径、旧资源命名空间、`export_workstation`、测试模组或设计文档。
 - 真实客户端：按本矩阵完成世界 A → 世界 B 的重连闭环，再安装到已知 PCL 实例。
 - Blender 与真实模组视觉验收由人工执行，自动测试不替代最终视觉判断。

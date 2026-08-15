@@ -1,8 +1,8 @@
 package com.nebysse.minetomesh.output;
 
 import com.nebysse.minetomesh.gltf.StreamingGltfSession;
-import com.nebysse.minetomesh.obj.StreamingObjSession;
 import com.nebysse.minetomesh.scene.ChunkBatch;
+import com.nebysse.minetomesh.usd.StreamingUsdaSession;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -11,7 +11,7 @@ import java.util.Objects;
 
 public final class StreamingSceneSession implements Closeable {
     private final StreamingGltfSession gltf;
-    private final StreamingObjSession obj;
+    private final StreamingUsdaSession usda;
     private boolean closed;
 
     public StreamingSceneSession(
@@ -23,7 +23,7 @@ public final class StreamingSceneSession implements Closeable {
         Objects.requireNonNull(rootExtras, "rootExtras");
         StreamingGltfSession openedGltf = new StreamingGltfSession(root, name, rootExtras);
         try {
-            obj = new StreamingObjSession(root, name);
+            usda = new StreamingUsdaSession(root, name, rootExtras);
             gltf = openedGltf;
         } catch (IOException exception) {
             openedGltf.close();
@@ -34,15 +34,15 @@ public final class StreamingSceneSession implements Closeable {
     public void append(ChunkBatch batch) throws IOException {
         requireOpen();
         gltf.append(Objects.requireNonNull(batch, "batch"));
-        obj.append(batch);
+        usda.append(batch);
     }
 
     public OutputStatistics finish() throws IOException {
         requireOpen();
         StreamingGltfSession.OutputStatistics gltfOutput = gltf.finish();
-        StreamingObjSession.OutputStatistics objOutput = obj.finish();
+        StreamingUsdaSession.OutputStatistics usdaOutput = usda.finish();
         closed = true;
-        return new OutputStatistics(gltfOutput, objOutput);
+        return new OutputStatistics(gltfOutput, usdaOutput);
     }
 
     private void requireOpen() {
@@ -64,7 +64,7 @@ public final class StreamingSceneSession implements Closeable {
             first = exception;
         }
         try {
-            obj.close();
+            usda.close();
         } catch (IOException exception) {
             if (first == null) {
                 first = exception;
@@ -79,10 +79,10 @@ public final class StreamingSceneSession implements Closeable {
 
     public record OutputStatistics(
             StreamingGltfSession.OutputStatistics gltf,
-            StreamingObjSession.OutputStatistics obj) {
+            StreamingUsdaSession.OutputStatistics usda) {
         public OutputStatistics {
             Objects.requireNonNull(gltf, "gltf");
-            Objects.requireNonNull(obj, "obj");
+            Objects.requireNonNull(usda, "usda");
         }
     }
 }
