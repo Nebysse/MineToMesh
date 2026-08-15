@@ -73,7 +73,7 @@
 | glTF 导入 | 在 Blender 5.2 导入 `.gltf` | 层级、比例、轴向、材质、UV 正确，面为三角形 |
 | USDA / OpenUSD 导入 | 在 Blender 5.2 通过 Universal Scene Description 导入 `.usda` | 源 Quad 保留为四边面，所有 Mesh 均为 `subdivisionScheme = "none"` |
 | 非对称坐标方位 | 在选区东侧放金块、西侧放钻石块，分别导入 glTF 与 USDA | 两种格式均无镜像；Minecraft +X 对应 Blender +X，材质、法线和正面方向正确 |
-| USDA 材质 | 检查草、树叶、玻璃、灯与像素纹理 | PreviewSurface 绑定正常；Tint、Cutout、Blend、发光可辨认；像素纹理使用 `Closest` 回退 |
+| USDA 材质 | 检查草、树叶、玻璃、灯与像素纹理 | PreviewSurface 绑定正常；Tint、Cutout、Blend、发光可辨认；若导入器忽略 `minetomesh:samplerMode`，将 Image Texture 手动设为 `Closest` |
 | Powered Rail 精确共面 | 导出上下表面完全重叠的充能铁轨并近距离观察 | 所有 Quad 保留；后续层沿自身法线以 `1/1024` 格分层，无黑面与闪烁 |
 | 草侧 Overlay 分层 | 导出草方块侧面并隐藏 Overlay 对象 | 底层与 Tint Overlay 均存在，显示时无 Z-fighting，隐藏后底层仍完整 |
 | 农作物与普通静态块 | 同时导出小麦、交叉面植物和石头 | 非重叠面位置不变，交叉面和普通方块拓扑无额外漂移 |

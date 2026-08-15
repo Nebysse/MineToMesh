@@ -44,6 +44,7 @@ class StreamingUsdaSessionTest {
         assertTrue(usd.contains("int[] faceVertexCounts = [4]"));
         assertTrue(usd.contains("uniform token subdivisionScheme = \"none\""));
         assertTrue(usd.contains("texCoord2f[] primvars:st"));
+        assertTrue(usd.contains("prepend apiSchemas = [\"MaterialBindingAPI\"]"));
         assertTrue(usd.contains("rel material:binding"));
         assertEquals(1, stats.nodeCount());
         assertEquals(1, stats.primitiveCount());

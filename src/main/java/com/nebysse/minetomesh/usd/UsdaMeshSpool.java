@@ -88,7 +88,9 @@ final class UsdaMeshSpool implements Closeable {
         String child = "                ";
         StringBuilder out = new StringBuilder();
         out.append(indent).append("def Mesh \"").append(UsdaNames.identifier(meshName))
-                .append("\"\n").append(indent).append("{\n")
+                .append("\"\n").append(indent).append("(\n")
+                .append(child).append("prepend apiSchemas = [\"MaterialBindingAPI\"]\n")
+                .append(indent).append(")\n").append(indent).append("{\n")
                 .append(child).append("uniform token subdivisionScheme = \"none\"\n")
                 .append(child).append("uniform bool doubleSided = ")
                 .append(material.doubleSided()).append("\n")

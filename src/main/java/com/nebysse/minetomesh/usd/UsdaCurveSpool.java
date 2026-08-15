@@ -74,6 +74,9 @@ final class UsdaCurveSpool implements Closeable {
         String indent = "            ";
         String child = "                ";
         String out = indent + "def BasisCurves \"" + UsdaNames.identifier(name) + "\"\n"
+                + indent + "(\n"
+                + child + "prepend apiSchemas = [\"MaterialBindingAPI\"]\n"
+                + indent + ")\n"
                 + indent + "{\n"
                 + child + "uniform token type = \"linear\"\n"
                 + child + "uniform token wrap = \"nonperiodic\"\n"

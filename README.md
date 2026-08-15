@@ -14,7 +14,7 @@ MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户
 - 每次导出同时生成 glTF 2.0 与 USDA，两种格式共享外部 PNG 纹理。
 - glTF 按规范三角化；USDA 保留捕获到的原始 Quad，并固定 `subdivisionScheme = "none"`。
 - 精确重叠的普通方块 Quad 按自身法线以 `1/1024` 格逐层偏移；首层位置保持不变，所有叠层几何均保留。
-- USDA 使用 PreviewSurface 表达纹理、顶点 Tint、透明、双面和发光语义；像素纹理使用 `Closest` 缩放回退。
+- USDA 使用 PreviewSurface 表达纹理、顶点 Tint、透明、双面和发光语义；最近邻语义写入 `minetomesh:samplerMode` 与材质 Sidecar。若 Blender 导入器未读取它，需把 Image Texture 插值手动设为 `Closest`。
 - 输出层级固定为 `Chunks`、`BlockEntities`、`Entities`、`Placeholders`、`Overlays`。
 - 坐标以选区最小点为局部原点，一格对应 Blender 一米；导出空间保留 Minecraft 的 `(X,Y,Z)` 相对方向，不执行轴反射。
 - Blender 导入 glTF 后执行 Y-up 到 Z-up 的轴旋转：Minecraft `+X` → Blender `+X`、Minecraft `+Y` → Blender `+Z`、Minecraft `+Z` → Blender `-Y`。
