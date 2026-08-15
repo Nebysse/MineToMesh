@@ -1,6 +1,8 @@
 package com.nebysse.minetomesh.client.wand;
 
 import com.nebysse.minetomesh.MineToMesh;
+import com.nebysse.minetomesh.client.selection.LockedSelection;
+import com.nebysse.minetomesh.client.selection.LockedSelectionService;
 import com.nebysse.minetomesh.job.ExportSummary;
 import com.nebysse.minetomesh.job.ExportTelemetry;
 import com.nebysse.minetomesh.network.ExportWandRequestPayload;
@@ -15,6 +17,9 @@ import com.nebysse.minetomesh.wand.ExportWandMenu;
 import com.nebysse.minetomesh.wand.ExportWandSelection;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.BooleanSupplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -22,8 +27,10 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
@@ -114,11 +121,15 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         }
 
         static Rect overlayButton() {
-            return new Rect(LEFT.x() + 12, LEFT.y() + 144, 92, 16);
+            return new Rect(LEFT.x() + 12, LEFT.y() + 144, 60, 16);
+        }
+
+        static Rect lockedSelectionButton() {
+            return new Rect(LEFT.x() + 74, LEFT.y() + 144, 60, 16);
         }
 
         static Rect includePlayersButton() {
-            return new Rect(LEFT.x() + 108, LEFT.y() + 144, 92, 16);
+            return new Rect(LEFT.x() + 136, LEFT.y() + 144, 60, 16);
         }
 
         static Rect nameField() {
@@ -138,27 +149,34 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
     }
 
     private final ExportWandController controller;
+    private final LockedSelectionService lockedSelectionService;
     private final List<CoordinateEditorModel> coordinateModels = new ArrayList<>();
     private final List<EditBox> coordinateFields = new ArrayList<>();
     private EditBox nameField;
     private Button exportButton;
     private Button cancelButton;
     private Button overlayButton;
+    private Button lockedSelectionButton;
     private Button includePlayersButton;
     private boolean overlayVisible;
+    private boolean selectionLocked;
     private boolean includePlayers;
     private boolean controllerBound;
     private boolean nameWasFocused;
     private final boolean[] coordinateWasFocused = new boolean[6];
     private String statusLine = "";
+    private String localStatusLine;
 
     public ExportWandScreen(
             ExportWandMenu menu,
             Inventory inventory,
             Component title,
-            ExportWandController controller) {
+            ExportWandController controller,
+            LockedSelectionService lockedSelectionService) {
         super(menu, inventory, title);
-        this.controller = controller;
+        this.controller = Objects.requireNonNull(controller, "controller");
+        this.lockedSelectionService = Objects.requireNonNull(
+                lockedSelectionService, "lockedSelectionService");
         this.imageWidth = 384;
         this.imageHeight = 216;
     }
@@ -176,6 +194,7 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         createActionWidgets();
         refreshFromMenu();
         syncOverlayFromMenu();
+        localStatusLine = null;
         statusLine = "";
     }
 
@@ -195,7 +214,11 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
                 field.setTextColorUneditable(MID);
                 field.setMaxLength(11);
                 field.setFilter(text -> text.matches("-?\\d*"));
-                field.setResponder(model::setText);
+                field.setResponder(text -> {
+                    model.setText(text);
+                    clearLocalStatus();
+                    updateLockedSelectionState();
+                });
                 addRenderableWidget(field);
                 coordinateFields.add(field);
 
@@ -216,7 +239,7 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
             }
         }
         overlayButton = addRenderableWidget(skinnedToggleButton(
-                Component.literal("选区显示：关"),
+                Component.literal("手持预览"),
                 Layout.overlayButton(), pressed -> toggleOverlay(),
                 ExportWandTextures.GUI_043,
                 ExportWandTextures.GUI_044,
@@ -224,8 +247,17 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
                 ExportWandTextures.GUI_059,
                 ExportWandTextures.GUI_060,
                 () -> overlayVisible));
+        lockedSelectionButton = addRenderableWidget(skinnedToggleButton(
+                Component.literal("锁定选区"),
+                Layout.lockedSelectionButton(), pressed -> toggleLockedSelection(),
+                ExportWandTextures.GUI_043,
+                ExportWandTextures.GUI_044,
+                ExportWandTextures.GUI_045,
+                ExportWandTextures.GUI_059,
+                ExportWandTextures.GUI_060,
+                () -> selectionLocked));
         includePlayersButton = addRenderableWidget(skinnedToggleButton(
-                Component.literal("导出玩家：关"),
+                Component.literal("导出玩家"),
                 Layout.includePlayersButton(), pressed -> toggleIncludePlayers(),
                 ExportWandTextures.GUI_043,
                 ExportWandTextures.GUI_044,
@@ -343,34 +375,62 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
     private void toggleOverlay() {
         overlayVisible = !overlayVisible;
         send(new ToggleWandOverlayPayload(overlayVisible));
-        updateOverlayButtonText();
+    }
+
+    private void toggleLockedSelection() {
+        LockedSelectionService.ToggleResult result =
+                lockedSelectionService.toggle(currentLockedSelection());
+        localStatusLine = switch (result) {
+            case LOCKED -> "选区已锁定";
+            case REPLACED -> "已替换锁定选区";
+            case UNLOCKED -> "选区已解锁";
+            case INCOMPLETE -> "需要完整选区";
+            case NO_PROFILE -> "无法识别当前世界";
+            case WRITE_FAILED -> "保存锁定选区失败";
+        };
+        statusLine = localStatusLine;
+        updateLockedSelectionState();
+    }
+
+    private Optional<LockedSelection> currentLockedSelection() {
+        if (coordinateModels.size() != 6 || minecraft == null || minecraft.level == null) {
+            return Optional.empty();
+        }
+        OptionalInt x1 = coordinateModels.get(0).commit();
+        OptionalInt y1 = coordinateModels.get(1).commit();
+        OptionalInt z1 = coordinateModels.get(2).commit();
+        OptionalInt x2 = coordinateModels.get(3).commit();
+        OptionalInt y2 = coordinateModels.get(4).commit();
+        OptionalInt z2 = coordinateModels.get(5).commit();
+        if (x1.isEmpty() || y1.isEmpty() || z1.isEmpty()
+                || x2.isEmpty() || y2.isEmpty() || z2.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new LockedSelection(
+                ResourceLocation.parse(currentDimension()),
+                new BlockPos(x1.getAsInt(), y1.getAsInt(), z1.getAsInt()),
+                new BlockPos(x2.getAsInt(), y2.getAsInt(), z2.getAsInt())));
+    }
+
+    private void updateLockedSelectionState() {
+        selectionLocked = currentLockedSelection()
+                .filter(lockedSelectionService::isCurrent)
+                .isPresent();
+    }
+
+    private void clearLocalStatus() {
+        localStatusLine = null;
     }
 
     private void syncOverlayFromMenu() {
         overlayVisible = menu.selection().overlayEnabled();
         includePlayers = menu.selection().includePlayers();
-        updateOverlayButtonText();
-        updateIncludePlayersButtonText();
+        updateLockedSelectionState();
     }
 
     private void toggleIncludePlayers() {
         includePlayers = !includePlayers;
         send(new ToggleWandIncludePlayersPayload(includePlayers));
-        updateIncludePlayersButtonText();
-    }
-
-    private void updateOverlayButtonText() {
-        if (overlayButton != null) {
-            overlayButton.setMessage(Component.literal(
-                    overlayVisible ? "选区显示：开" : "选区显示：关"));
-        }
-    }
-
-    private void updateIncludePlayersButtonText() {
-        if (includePlayersButton != null) {
-            includePlayersButton.setMessage(Component.literal(
-                    includePlayers ? "导出玩家：开" : "导出玩家：关"));
-        }
     }
 
     private String currentDimension() {
@@ -378,6 +438,7 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
     }
 
     private void requestExport() {
+        clearLocalStatus();
         String rawName = nameField.getValue();
         try {
             ExportName name = ExportName.parse(rawName);
@@ -486,6 +547,11 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
     }
 
     private void updateStatusLine() {
+        if (localStatusLine != null
+                && controller.state() == ExportWandController.State.READY) {
+            statusLine = localStatusLine;
+            return;
+        }
         switch (controller.state()) {
             case READY -> statusLine = "就绪";
             case WAITING_FOR_GRANT -> statusLine = "等待服务端授权";

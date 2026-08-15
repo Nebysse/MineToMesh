@@ -15,10 +15,15 @@ class SelectionOverlayRendererTest {
         String source = Files.readString(projectRoot().resolve(
                 "src/main/java/com/nebysse/minetomesh/client/wand/SelectionOverlayRenderer.java"),
                 StandardCharsets.UTF_8);
+        assertTrue(source.contains("heldSource.resolveSnapshot("));
         assertTrue(source.contains("player.getMainHandItem()"));
         assertTrue(source.contains("player.getOffhandItem()"));
+        assertTrue(source.contains("lockedService.resolve("));
+        assertTrue(source.contains("OverlaySnapshotPolicy.merge("));
+        assertTrue(source.contains("for (HeldWandOverlaySource.Snapshot snapshot : snapshots)"));
         assertTrue(source.contains("RenderType.debugQuads()"));
         assertTrue(source.contains("RenderType.lines()"));
+        assertFalse(source.contains("player.getInventory()"));
         assertFalse(source.contains("ExportWorkstationBlockEntity"));
         assertFalse(source.contains("OverlayKey"));
     }
