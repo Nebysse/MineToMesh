@@ -1,5 +1,6 @@
 package com.nebysse.minetomesh.fabric.client;
 
+import com.nebysse.minetomesh.client.MineToMeshClient;
 import com.nebysse.minetomesh.network.ExportWandGrantedPayload;
 import com.nebysse.minetomesh.network.ExportWandRejectedPayload;
 import com.nebysse.minetomesh.network.WandClientReceiver;
@@ -10,6 +11,8 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 @Environment(EnvType.CLIENT)
 public final class MineToMeshFabricClient implements ClientModInitializer {
+    private MineToMeshClient client;
+
     @Override
     public void onInitializeClient() {
         ClientPlayNetworking.registerGlobalReceiver(
@@ -20,5 +23,15 @@ public final class MineToMeshFabricClient implements ClientModInitializer {
                 ExportWandRejectedPayload.TYPE,
                 (payload, context) -> context.client().execute(
                         () -> WandClientReceiver.receive(payload)));
+        client = new MineToMeshClient(
+                (selection, name, options, telemetry) -> {
+                    throw new IllegalStateException(
+                            "Fabric export pipeline has not been initialized");
+                },
+                (selection, name) -> {
+                    throw new IllegalStateException(
+                            "Fabric export pipeline has not been initialized");
+                });
+        client.register();
     }
 }
