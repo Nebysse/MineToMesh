@@ -32,6 +32,19 @@ test {
     useJUnitPlatform()
 }
 
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand version: project.version
+    }
+    from(project(':neoforge-1.21.1').file('src/main/resources')) {
+        include 'assets/minetomesh/lang/**'
+        include 'assets/minetomesh/textures/**'
+        include 'minetomesh_logo.png'
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(25)
     sourceCompatibility = JavaVersion.VERSION_25
@@ -47,4 +60,7 @@ tasks.withType(JavaCompile).configureEach {
 tasks.named('jar', Jar).configure {
     archiveFileName = "MineToMesh-${version}+mc26.2.jar"
     from(project(':common').sourceSets.main.output)
+    from(rootProject.file('LICENSE')) {
+        rename { "LICENSE_MineToMesh" }
+    }
 }

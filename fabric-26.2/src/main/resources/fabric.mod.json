@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "minetomesh",
+  "version": "${version}",
+  "name": "MineToMesh",
+  "description": "Export loaded Minecraft selections as editable glTF 2.0 and OpenUSD scenes.",
+  "authors": [
+    "岚苍穹 nebysse"
+  ],
+  "contact": {
+    "sources": "https://github.com/nebysse/MineToMesh"
+  },
+  "license": "MIT",
+  "icon": "minetomesh_logo.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.nebysse.minetomesh.fabric.MineToMeshFabric"
+    ],
+    "client": [
+      "com.nebysse.minetomesh.fabric.client.MineToMeshFabricClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
