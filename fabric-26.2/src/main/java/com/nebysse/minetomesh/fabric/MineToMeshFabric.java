@@ -1,6 +1,7 @@
 package com.nebysse.minetomesh.fabric;
 
 import com.nebysse.minetomesh.MineToMeshInfo;
+import com.nebysse.minetomesh.content.MineToMeshContent;
 import net.fabricmc.api.ModInitializer;
 
 public final class MineToMeshFabric implements ModInitializer {
@@ -10,6 +11,6 @@ public final class MineToMeshFabric implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        // Platform services are registered by the following implementation tasks.
+        MineToMeshContent.register();
     }
 }
