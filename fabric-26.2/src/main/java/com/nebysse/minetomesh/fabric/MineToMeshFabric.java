@@ -2,6 +2,8 @@ package com.nebysse.minetomesh.fabric;
 
 import com.nebysse.minetomesh.MineToMeshInfo;
 import com.nebysse.minetomesh.content.MineToMeshContent;
+import com.nebysse.minetomesh.network.WandPayloads;
+import com.nebysse.minetomesh.wand.WandInteractionHandler;
 import net.fabricmc.api.ModInitializer;
 
 public final class MineToMeshFabric implements ModInitializer {
@@ -12,5 +14,7 @@ public final class MineToMeshFabric implements ModInitializer {
     @Override
     public void onInitialize() {
         MineToMeshContent.register();
+        WandPayloads.registerServer();
+        WandInteractionHandler.register();
     }
 }
