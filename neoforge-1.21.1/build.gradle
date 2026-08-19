@@ -53,6 +53,7 @@ neoForge {
     mods {
         "${mod_id}" {
             sourceSet(sourceSets.main)
+            sourceSet(project(':common').sourceSets.main)
         }
         minetomesh_test {
             sourceSet(sourceSets.testmod)
@@ -72,6 +73,7 @@ configurations {
 }
 
 dependencies {
+    implementation project(':common')
     compileOnly 'com.google.code.gson:gson:2.10.1'
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -93,6 +95,7 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('jar', Jar).configure {
     archiveFileName = "MineToMesh-${version}-neoforge-1.21.1.jar"
+    from(project(':common').sourceSets.main.output)
 }
 
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {

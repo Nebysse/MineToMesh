@@ -22,6 +22,18 @@ class ObjRemovalPolicyTest {
     }
 
     private static Path projectRoot() {
-        return Path.of(System.getProperty("user.dir")).getParent().getParent();
+        Path current = Path.of("").toAbsolutePath().normalize();
+        while (current != null) {
+            if (Files.isRegularFile(current.resolve("common/build.gradle"))) {
+                return current.resolve("common");
+            }
+            if (current.getFileName() != null
+                    && current.getFileName().toString().equals("common")
+                    && Files.isRegularFile(current.resolve("build.gradle"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        throw new AssertionError("Could not locate the common project");
     }
 }

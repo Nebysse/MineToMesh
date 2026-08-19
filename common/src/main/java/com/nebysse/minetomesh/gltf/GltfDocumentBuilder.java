@@ -3,7 +3,7 @@ package com.nebysse.minetomesh.gltf;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.nebysse.minetomesh.MineToMesh;
+import com.nebysse.minetomesh.MineToMeshInfo;
 import com.nebysse.minetomesh.scene.CapturedNode;
 import com.nebysse.minetomesh.scene.MaterialKey;
 import com.nebysse.minetomesh.scene.TextureKey;
@@ -168,7 +168,8 @@ public final class GltfDocumentBuilder {
         JsonObject document = new JsonObject();
         JsonObject asset = new JsonObject();
         asset.addProperty("version", "2.0");
-        asset.addProperty("generator", MineToMesh.DISPLAY_NAME + " " + MineToMesh.VERSION);
+        asset.addProperty("generator",
+                MineToMeshInfo.DISPLAY_NAME + " " + MineToMeshInfo.CORE_VERSION);
         document.add("asset", asset);
         document.addProperty("scene", 0);
 

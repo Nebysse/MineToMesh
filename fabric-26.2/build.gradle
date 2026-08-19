@@ -46,4 +46,5 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('jar', Jar).configure {
     archiveFileName = "MineToMesh-${version}+mc26.2.jar"
+    from(project(':common').sourceSets.main.output)
 }
