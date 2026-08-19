@@ -115,6 +115,7 @@ class DocumentationPolicyTest {
     }
 
     private static Path projectRoot() {
-        return Path.of(System.getProperty("user.dir")).getParent().getParent();
+        return Path.of(System.getProperty("user.dir"))
+                .getParent().getParent().getParent();
     }
 }

@@ -78,7 +78,7 @@ class ExportWandVisualIntegrationTest {
     }
 
     private static Map<String, String> approvedHashes() throws Exception {
-        Path manifest = projectRoot().resolve(
+        Path manifest = projectRoot().getParent().resolve(
                 "docs/superpowers/design-assets/minetomesh-0.3.0/"
                         + "workstation-gui-slices-1x-sha256.yml");
         Map<String, String> hashes = new LinkedHashMap<>();

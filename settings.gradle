@@ -1,5 +1,6 @@
 pluginManagement {
     repositories {
+        maven { url = 'https://maven.fabricmc.net/' }
         gradlePluginPortal()
     }
 }
@@ -9,3 +10,4 @@ plugins {
 }
 
 rootProject.name = 'MineToMesh'
+include 'common', 'neoforge-1.21.1', 'fabric-26.2'

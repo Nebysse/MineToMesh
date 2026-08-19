@@ -19,16 +19,17 @@ class IdentityMigrationContractTest {
     void buildIdentityDeclaresMineToMesh120() throws Exception {
         Properties properties = new Properties();
         try (var reader = Files.newBufferedReader(
-                projectRoot().resolve("gradle.properties"), StandardCharsets.UTF_8)) {
+                repositoryRoot().resolve("gradle.properties"), StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
 
         assertEquals("minetomesh", properties.getProperty("mod_id"));
         assertEquals("MineToMesh", properties.getProperty("mod_name"));
-        assertEquals("1.2.0", properties.getProperty("mod_version"));
+        assertEquals("1.2.0", properties.getProperty("neoforge_mod_version"));
         assertEquals("com.nebysse.minetomesh", properties.getProperty("mod_group_id"));
-        assertTrue(read("build.gradle").contains("archivesName = mod_name"));
-        assertTrue(read("settings.gradle").contains("rootProject.name = 'MineToMesh'"));
+        assertTrue(read("build.gradle").contains("MineToMesh-${version}-neoforge-1.21.1.jar"));
+        assertTrue(Files.readString(repositoryRoot().resolve("settings.gradle"))
+                .contains("rootProject.name = 'MineToMesh'"));
     }
 
     @Test
@@ -95,5 +96,9 @@ class IdentityMigrationContractTest {
 
     private static Path projectRoot() {
         return Path.of(System.getProperty("user.dir")).getParent().getParent();
+    }
+
+    private static Path repositoryRoot() {
+        return projectRoot().getParent();
     }
 }
