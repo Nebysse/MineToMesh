@@ -1,7 +1,7 @@
 package com.nebysse.minetomesh.capture;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.nebysse.minetomesh.backend.RenderBackendRegistry;
+import com.nebysse.minetomesh.backend.NeoForgeRenderBackends;
 import com.nebysse.minetomesh.material.MaterialResolver;
 import com.nebysse.minetomesh.scene.BatchCounters;
 import com.nebysse.minetomesh.scene.CapturedNode;
@@ -43,7 +43,7 @@ public final class EntityCapture {
     }
 
     public EntityCapture(Function<RenderTypeDescriptor, MaterialKey> materialResolver) {
-        this(materialResolver, new RendererReplay(RenderBackendRegistry.discover(
+        this(materialResolver, new RendererReplay(NeoForgeRenderBackends.discover(
                 EntityCapture.class.getClassLoader())));
     }
 

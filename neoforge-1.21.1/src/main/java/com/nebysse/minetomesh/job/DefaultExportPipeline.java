@@ -66,8 +66,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.neoforged.fml.ModList;
 
 public final class DefaultExportPipeline {
-    private static final int WRITER_QUEUE_CAPACITY = 2;
-
     private DefaultExportPipeline() {
     }
 
@@ -122,13 +120,14 @@ public final class DefaultExportPipeline {
             textures.register(PlaceholderFactory.TEXTURE, PlaceholderFactory.textureImage());
             ProductionCaptureSource source = new ProductionCaptureSource(
                     minecraft, level, plan, textures, options);
-            AsyncBatchSink sink = new AsyncBatchSink(
+            StreamingBatchSink sink = new StreamingBatchSink(
                     transaction,
                     textures,
                     name,
                     plan,
                     rootExtras(minecraft, plan, options),
                     level.getGameTime(),
+                    level::getGameTime,
                     telemetry);
             return new ExportJob(
                     source, sink, System::nanoTime, Duration.ofMillis(6), telemetry);
@@ -146,10 +145,19 @@ public final class DefaultExportPipeline {
     private static Map<String, Object> rootExtras(
             Minecraft minecraft, ExportPlan plan, ExportOptions options) {
         Selection selection = plan.selection();
-        Map<String, Object> extras = new LinkedHashMap<>();
-        extras.put("minecraftVersion", "1.21.1");
-        extras.put("neoForgeVersion", loadedModVersion("neoforge"));
-        extras.put("exporterVersion", MineToMesh.VERSION);
+        String loaderVersion = loadedModVersion("neoforge");
+        ExportEnvironment environment = new ExportEnvironment(
+                "1.21.1",
+                "neoforge",
+                loaderVersion,
+                MineToMesh.VERSION,
+                List.copyOf(minecraft.getResourcePackRepository().getSelectedIds()),
+                ModList.get().getMods().stream()
+                        .map(info -> info.getModId() + "@" + info.getVersion())
+                        .sorted()
+                        .toList());
+        Map<String, Object> extras = new LinkedHashMap<>(environment.asExtras());
+        extras.put("neoForgeVersion", loaderVersion);
         extras.put("dimension", selection.min().dimension());
         extras.put("selectionMin", List.of(
                 selection.min().x(), selection.min().y(), selection.min().z()));
@@ -157,12 +165,6 @@ public final class DefaultExportPipeline {
                 selection.max().x(), selection.max().y(), selection.max().z()));
         extras.put("origin", List.of(
                 selection.min().x(), selection.min().y(), selection.min().z()));
-        extras.put("activeResourcePacks", List.copyOf(
-                minecraft.getResourcePackRepository().getSelectedIds()));
-        extras.put("loadedMods", ModList.get().getMods().stream()
-                .map(info -> info.getModId() + "@" + info.getVersion())
-                .sorted()
-                .toList());
         extras.put("snapshotMode", "rolling_client_snapshot");
         extras.put("formats", List.of("gltf", "usda"));
         extras.put("includePlayers", options.includePlayers());
@@ -395,259 +397,4 @@ public final class DefaultExportPipeline {
         };
     }
 
-    private static final class AsyncBatchSink implements ExportJob.BatchSink {
-        private final ArrayBlockingQueue<Envelope> queue =
-                new ArrayBlockingQueue<>(WRITER_QUEUE_CAPACITY);
-        private final AtomicReference<ExportJob.WriterResult> result = new AtomicReference<>();
-        private final AtomicBoolean cancelled = new AtomicBoolean();
-        private final ClientLevel level;
-        private final ExportTelemetry telemetry;
-        private boolean terminalSent;
-
-        private AsyncBatchSink(
-                OutputTransaction transaction,
-                TextureRegistry textures,
-                ExportName name,
-                ExportPlan plan,
-                Map<String, Object> rootExtras,
-                long startGameTime,
-                ExportTelemetry telemetry) {
-            this.level = Objects.requireNonNull(Minecraft.getInstance().level, "level");
-            this.telemetry = Objects.requireNonNull(telemetry, "telemetry");
-            Thread writer = new Thread(
-                    () -> writeLoop(transaction, textures, name, plan,
-                            rootExtras, startGameTime),
-                    "minetomesh-writer-" + name.value());
-            writer.setDaemon(true);
-            writer.start();
-        }
-
-        @Override
-        public boolean offer(ChunkBatch batch) {
-            return !terminalSent && !cancelled.get() && queue.offer(Envelope.batch(batch));
-        }
-
-        @Override
-        public int queueDepth() {
-            return queue.size();
-        }
-
-        @Override
-        public boolean finishInput() {
-            if (terminalSent) {
-                return true;
-            }
-            if (!queue.offer(Envelope.finish(level.getGameTime()))) {
-                return false;
-            }
-            terminalSent = true;
-            return true;
-        }
-
-        @Override
-        public Optional<ExportJob.WriterResult> pollResult() {
-            return Optional.ofNullable(result.getAndSet(null));
-        }
-
-        @Override
-        public void cancel() {
-            if (cancelled.compareAndSet(false, true)) {
-                queue.clear();
-                queue.offer(Envelope.cancelledMarker());
-            }
-        }
-
-        private void writeLoop(
-                OutputTransaction transaction,
-                TextureRegistry textures,
-                ExportName name,
-                ExportPlan plan,
-                Map<String, Object> rootExtras,
-                long startGameTime) {
-            List<Diagnostic> diagnostics = new ArrayList<>();
-            BatchCounters counters = BatchCounters.ZERO;
-            GeometryAdjustmentStats adjustments = GeometryAdjustmentStats.ZERO;
-            Set<MaterialKey> materials = new LinkedHashSet<>();
-            long endGameTime = startGameTime;
-            telemetry.writerStage(ExportTelemetry.WriterStage.DRAINING);
-            try (transaction;
-                 StreamingSceneSession session = new StreamingSceneSession(
-                         transaction.temporaryDirectory(), name.value(), rootExtras)) {
-                while (true) {
-                    Envelope envelope = queue.take();
-                    if (envelope.cancel() || cancelled.get()) {
-                        return;
-                    }
-                    if (envelope.finish()) {
-                        endGameTime = envelope.gameTime();
-                        break;
-                    }
-                    ChunkBatch batch = envelope.batch();
-                    session.append(batch);
-                    diagnostics.addAll(batch.diagnostics());
-                    counters = counters.plus(batch.counters());
-                    adjustments = adjustments.plus(batch.adjustments());
-                    batch.nodes().forEach(node -> node.primitives()
-                            .forEach(primitive -> materials.add(primitive.material())));
-                }
-
-                telemetry.writerStage(ExportTelemetry.WriterStage.TEXTURES);
-                textures.writeAll(transaction.temporaryDirectory());
-                telemetry.writerStage(ExportTelemetry.WriterStage.DOCUMENTS);
-                StreamingSceneSession.OutputStatistics output = session.finish();
-                writeMaterialSidecars(transaction.temporaryDirectory(), materials, textures);
-                List<String> validationErrors = validate(output.gltf().gltfPath());
-                for (String error : validationErrors) {
-                    diagnostics.add(new Diagnostic(
-                            Diagnostic.Severity.FATAL,
-                            "INTERNAL_GLTF_VALIDATION_FAILED",
-                            name.value(),
-                            Optional.empty(),
-                            "",
-                            "",
-                            error));
-                }
-                BatchCounters finalCounters = withAssetCounts(
-                        counters, materials.size(), textures.size());
-                boolean fatal = diagnostics.stream()
-                        .anyMatch(value -> value.severity() == Diagnostic.Severity.FATAL);
-                long warnings = warningCount(diagnostics);
-                String status = fatal ? "failed"
-                        : warnings == 0 ? "completed" : "completed_with_warnings";
-                telemetry.writerStage(ExportTelemetry.WriterStage.REPORT);
-                ReportWriter.write(transaction.temporaryDirectory(), report(
-                        status, plan, startGameTime, endGameTime,
-                        finalCounters, adjustments, diagnostics));
-                if (fatal) {
-                    result.set(ExportJob.WriterResult.failure(
-                            "Internal glTF validation failed with " + validationErrors.size() + " error(s)"));
-                    return;
-                }
-                Path published = transaction.publish();
-                telemetry.writerStage(ExportTelemetry.WriterStage.COMMITTED);
-                result.set(ExportJob.WriterResult.success(
-                        published,
-                        warnings,
-                        status,
-                        output.gltf().nodeCount(),
-                        output.gltf().primitiveCount(),
-                        textures.size()));
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                if (!cancelled.get()) {
-                    result.set(ExportJob.WriterResult.failure("Writer thread was interrupted"));
-                }
-            } catch (Exception exception) {
-                if (!cancelled.get()) {
-                    result.set(ExportJob.WriterResult.failure(
-                            exception.getMessage() == null
-                                    ? exception.getClass().getSimpleName() : exception.getMessage()));
-                }
-                try {
-                    transaction.close();
-                } catch (IOException ignored) {
-                    // The primary writer error is retained.
-                }
-            }
-        }
-    }
-
-    private static void writeMaterialSidecars(
-            Path root,
-            Set<MaterialKey> materials,
-            TextureRegistry textures) throws IOException {
-        Map<com.nebysse.minetomesh.scene.TextureKey, TextureImage.AnimationInfo> animations =
-                new LinkedHashMap<>();
-        for (TextureRegistry.Entry entry : textures.entries()) {
-            entry.image().animation().ifPresent(value -> animations.put(entry.key(), value));
-        }
-        int index = 0;
-        for (MaterialKey material : materials) {
-            RenderTypeDescriptor descriptor = new RenderTypeDescriptor(
-                    "captured",
-                    PrimitiveMode.QUADS,
-                    Optional.of(material.texture().sourceId()),
-                    material.alphaMode(),
-                    material.alphaCutoff(),
-                    !material.doubleSided(),
-                    material.emissive(),
-                    material.blendSemantic(),
-                    material.samplerMode() == MaterialKey.SamplerMode.NEAREST_MIPMAP,
-                    false);
-            MaterialSidecarWriter.write(root, new MaterialSidecarWriter.MaterialRecord(
-                    index++,
-                    material,
-                    descriptor,
-                    Optional.ofNullable(animations.get(material.texture())),
-                    List.of()));
-        }
-    }
-
-    private static List<String> validate(Path gltfPath) throws IOException {
-        JsonObject document = JsonParser.parseString(
-                Files.readString(gltfPath, StandardCharsets.UTF_8)).getAsJsonObject();
-        return InternalGltfValidator.validate(document, gltfPath.getParent());
-    }
-
-    private static BatchCounters withAssetCounts(
-            BatchCounters source,
-            long materials,
-            long textures) {
-        return new BatchCounters(
-                source.scannedPositions(),
-                source.renderedBlocks(),
-                source.renderedFluids(),
-                source.blockEntities(),
-                source.entities(),
-                materials,
-                textures,
-                source.triangles(),
-                source.placeholders());
-    }
-
-    private static ExportReport report(
-            String status,
-            ExportPlan plan,
-            long startGameTime,
-            long endGameTime,
-            BatchCounters counters,
-            GeometryAdjustmentStats adjustments,
-            List<Diagnostic> diagnostics) {
-        Selection selection = plan.selection();
-        return new ExportReport(
-                status,
-                "rolling_client_snapshot",
-                selection.min().dimension(),
-                new int[] {selection.min().x(), selection.min().y(), selection.min().z()},
-                new int[] {selection.max().x(), selection.max().y(), selection.max().z()},
-                new int[] {selection.min().x(), selection.min().y(), selection.min().z()},
-                selection.volume(),
-                startGameTime,
-                endGameTime,
-                counters,
-                adjustments,
-                plan.missingChunks().stream()
-                        .map(chunk -> new ExportReport.MissingChunk(chunk.chunkX(), chunk.chunkZ()))
-                        .toList(),
-                diagnostics,
-                Map.of());
-    }
-
-    private record Envelope(
-            ChunkBatch batch,
-            boolean finish,
-            boolean cancel,
-            long gameTime) {
-        private static Envelope batch(ChunkBatch batch) {
-            return new Envelope(Objects.requireNonNull(batch, "batch"), false, false, 0);
-        }
-
-        private static Envelope finish(long gameTime) {
-            return new Envelope(null, true, false, gameTime);
-        }
-
-        private static Envelope cancelledMarker() {
-            return new Envelope(null, false, true, 0);
-        }
-    }
 }
