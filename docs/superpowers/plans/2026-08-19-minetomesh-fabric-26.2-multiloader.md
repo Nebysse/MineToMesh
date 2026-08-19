@@ -22,7 +22,7 @@
 
 ## Execution precondition
 
-Run implementation in an isolated worktree created from commit `52f1942`. Do not copy the current main worktree’s unrelated `.gitignore`, `$null`, or `模组封面.png` changes into it.
+Run implementation in an isolated worktree created from the planning HEAD containing commits `52f1942` and `b8e493e`. Do not copy the current main worktree’s unrelated `.gitignore`, `$null`, or `模组封面.png` changes into it.
 
 ---
 
