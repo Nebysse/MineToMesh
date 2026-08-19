@@ -4,6 +4,7 @@
 build/
 run/
 run-data/
+logs/
 .idea/
 *.iml
 out/
