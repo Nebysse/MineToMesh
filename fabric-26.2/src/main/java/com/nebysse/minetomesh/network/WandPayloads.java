@@ -41,6 +41,7 @@ public final class WandPayloads {
                 ExportWandGrantedPayload.TYPE, ExportWandGrantedPayload.STREAM_CODEC);
         PayloadTypeRegistry.clientboundPlay().register(
                 ExportWandRejectedPayload.TYPE, ExportWandRejectedPayload.STREAM_CODEC);
+        registerRollingSessionTypes();
 
         ServerPlayNetworking.registerGlobalReceiver(
                 ClearWandSelectionPayload.TYPE, WandPayloads::handleClearSelection);
@@ -60,6 +61,43 @@ public final class WandPayloads {
                 UpdateWandExportNamePayload.TYPE, WandPayloads::handleUpdateExportName);
         ServerPlayNetworking.registerGlobalReceiver(
                 ExportWandRequestPayload.TYPE, WandPayloads::handleExportRequest);
+        ServerPlayNetworking.registerGlobalReceiver(BatchClientReadablePayload.TYPE,
+                (payload, context) -> WandServerSessionReceiver.receive(payload, context.player()));
+        ServerPlayNetworking.registerGlobalReceiver(BatchCaptureCompletedPayload.TYPE,
+                (payload, context) -> WandServerSessionReceiver.receive(payload, context.player()));
+        ServerPlayNetworking.registerGlobalReceiver(ExportProgressHeartbeatPayload.TYPE,
+                (payload, context) -> WandServerSessionReceiver.receive(payload, context.player()));
+        ServerPlayNetworking.registerGlobalReceiver(CancelExportRequestPayload.TYPE,
+                (payload, context) -> WandServerSessionReceiver.receive(payload, context.player()));
+        ServerPlayNetworking.registerGlobalReceiver(ExportClientCompletedPayload.TYPE,
+                (payload, context) -> WandServerSessionReceiver.receive(payload, context.player()));
+    }
+
+    private static void registerRollingSessionTypes() {
+        PayloadTypeRegistry.serverboundPlay().register(BatchClientReadablePayload.TYPE,
+                BatchClientReadablePayload.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(BatchCaptureCompletedPayload.TYPE,
+                BatchCaptureCompletedPayload.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(ExportProgressHeartbeatPayload.TYPE,
+                ExportProgressHeartbeatPayload.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(CancelExportRequestPayload.TYPE,
+                CancelExportRequestPayload.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(ExportClientCompletedPayload.TYPE,
+                ExportClientCompletedPayload.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(ExportSessionAcceptedPayload.TYPE,
+                ExportSessionAcceptedPayload.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(ExportSessionRejectedPayload.TYPE,
+                ExportSessionRejectedPayload.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(BatchLoadStartedPayload.TYPE,
+                BatchLoadStartedPayload.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(BatchReadyPayload.TYPE,
+                BatchReadyPayload.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(ExportCancelAcknowledgedPayload.TYPE,
+                ExportCancelAcknowledgedPayload.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(ExportSessionFinishedPayload.TYPE,
+                ExportSessionFinishedPayload.STREAM_CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(ExportSessionFailedPayload.TYPE,
+                ExportSessionFailedPayload.STREAM_CODEC);
     }
 
     private static void handleClearSelection(
@@ -187,13 +225,9 @@ public final class WandPayloads {
         }
         ExportWandService.INSTANCE.setExportName(
                 stack, ExportName.parse(payload.exportName()).value());
-        ServerPlayNetworking.send(player, new ExportWandGrantedPayload(
-                wandId,
-                payload.exportName(),
-                selection.pos1().orElseThrow(),
-                selection.pos2().orElseThrow(),
-                selection.selectionDimension().orElseThrow().toString(),
-                selection.includePlayers()));
+        WandServerSessionReceiver.requestExport(
+                new WandServerSessionReceiver.ExportRequest(
+                        player, wandId, selection, payload.exportName()));
     }
 
     private static void sendReject(

@@ -19,9 +19,10 @@ class WandPermissionIntegrationTest {
         assertTrue(source.contains("context.server().isSingleplayer()"));
         assertTrue(source.contains("permissions()"));
         assertTrue(source.contains("Permissions.COMMANDS_GAMEMASTER"));
-        assertTrue(source.contains("new ExportWandGrantedPayload("));
-        assertTrue(source.contains("selection.pos1().orElseThrow()"));
-        assertTrue(source.contains("selection.pos2().orElseThrow()"));
+        assertTrue(source.contains("WandServerSessionReceiver.requestExport"));
+        assertTrue(source.contains("player, wandId, selection, payload.exportName()"));
+        assertTrue(source.contains("selection.batchChunkCount()")
+                || source.contains("ExportRequest("));
     }
 
     private static Path moduleRoot() {

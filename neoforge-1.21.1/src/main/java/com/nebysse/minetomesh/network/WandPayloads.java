@@ -56,6 +56,50 @@ public final class WandPayloads {
         registrar.playToClient(ExportWandRejectedPayload.TYPE,
                 ExportWandRejectedPayload.STREAM_CODEC,
                 (payload, context) -> WandClientReceiver.receive(payload));
+        registerRollingSessionPayloads(registrar);
+    }
+
+    private static void registerRollingSessionPayloads(PayloadRegistrar registrar) {
+        registrar.playToServer(BatchClientReadablePayload.TYPE,
+                BatchClientReadablePayload.STREAM_CODEC, WandPayloads::handleSessionServerbound);
+        registrar.playToServer(BatchCaptureCompletedPayload.TYPE,
+                BatchCaptureCompletedPayload.STREAM_CODEC, WandPayloads::handleSessionServerbound);
+        registrar.playToServer(ExportProgressHeartbeatPayload.TYPE,
+                ExportProgressHeartbeatPayload.STREAM_CODEC, WandPayloads::handleSessionServerbound);
+        registrar.playToServer(CancelExportRequestPayload.TYPE,
+                CancelExportRequestPayload.STREAM_CODEC, WandPayloads::handleSessionServerbound);
+        registrar.playToServer(ExportClientCompletedPayload.TYPE,
+                ExportClientCompletedPayload.STREAM_CODEC, WandPayloads::handleSessionServerbound);
+        registrar.playToClient(ExportSessionAcceptedPayload.TYPE,
+                ExportSessionAcceptedPayload.STREAM_CODEC,
+                (payload, context) -> WandClientReceiver.receiveSession(payload));
+        registrar.playToClient(ExportSessionRejectedPayload.TYPE,
+                ExportSessionRejectedPayload.STREAM_CODEC,
+                (payload, context) -> WandClientReceiver.receiveSession(payload));
+        registrar.playToClient(BatchLoadStartedPayload.TYPE,
+                BatchLoadStartedPayload.STREAM_CODEC,
+                (payload, context) -> WandClientReceiver.receiveSession(payload));
+        registrar.playToClient(BatchReadyPayload.TYPE, BatchReadyPayload.STREAM_CODEC,
+                (payload, context) -> WandClientReceiver.receiveSession(payload));
+        registrar.playToClient(ExportCancelAcknowledgedPayload.TYPE,
+                ExportCancelAcknowledgedPayload.STREAM_CODEC,
+                (payload, context) -> WandClientReceiver.receiveSession(payload));
+        registrar.playToClient(ExportSessionFinishedPayload.TYPE,
+                ExportSessionFinishedPayload.STREAM_CODEC,
+                (payload, context) -> WandClientReceiver.receiveSession(payload));
+        registrar.playToClient(ExportSessionFailedPayload.TYPE,
+                ExportSessionFailedPayload.STREAM_CODEC,
+                (payload, context) -> WandClientReceiver.receiveSession(payload));
+    }
+
+    private static void handleSessionServerbound(
+            net.minecraft.network.protocol.common.custom.CustomPacketPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer player) {
+                WandServerSessionReceiver.receive(payload, player);
+            }
+        });
     }
 
     private static void handleClearSelection(
@@ -195,13 +239,9 @@ public final class WandPayloads {
             }
             ExportWandService.INSTANCE.setExportName(
                     stack, ExportName.parse(payload.exportName()).value());
-            PacketDistributor.sendToPlayer(player, new ExportWandGrantedPayload(
-                    wandId,
-                    payload.exportName(),
-                    selection.pos1().orElseThrow(),
-                    selection.pos2().orElseThrow(),
-                    selection.selectionDimension().orElseThrow().toString(),
-                    selection.includePlayers()));
+            WandServerSessionReceiver.requestExport(
+                    new WandServerSessionReceiver.ExportRequest(
+                            player, wandId, selection, payload.exportName()));
         });
     }
 
