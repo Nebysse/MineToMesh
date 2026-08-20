@@ -66,7 +66,7 @@ final class FabricJarContractTest {
         Path libs = moduleRoot().resolve("build/libs");
         try (var files = Files.list(libs)) {
             return files.filter(path -> path.getFileName().toString()
-                            .matches("MineToMesh-1\\.2\\.0-fabric-alpha\\.1\\+mc26\\.2\\.jar"))
+                            .matches("MineToMesh-1\\.3\\.0-fabric-alpha\\.1\\+mc26\\.2\\.jar"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError(
                             "Final Fabric JAR not found in " + libs));
