@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nebysse.minetomesh.scene.BatchCounters;
 import com.nebysse.minetomesh.scene.ChunkBatch;
+import com.nebysse.minetomesh.world.ChunkCoordinate;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -12,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import org.junit.jupiter.api.Test;
 
@@ -71,6 +74,52 @@ class ExportJobTest {
         sink.drainOne();
         job.tick();
         assertTrue(source.capturedPositions > capturedBeforePause);
+    }
+
+    @Test
+    void rawPipelineNeverBlocksTheClientTickOnWorkerCompletion() throws Exception {
+        CountDownLatch workerGate = new CountDownLatch(1);
+        try (OrderedBatchExecutor processor = new OrderedBatchExecutor(
+                1, 1, (raw, token) -> {
+                    workerGate.await();
+                    return batch("processed");
+                })) {
+            ExportJob.RawCaptureSource source = new ExportJob.RawCaptureSource() {
+                @Override
+                public RawChunkBatch captureEntities() {
+                    return new RawChunkBatch(
+                            0, new ChunkCoordinate(0, 0),
+                            List.of(), List.of(), BatchCounters.ZERO);
+                }
+
+                @Override
+                public int sectionCount() {
+                    return 0;
+                }
+
+                @Override
+                public ExportJob.RawSectionCapture openSection(int index) {
+                    throw new AssertionError("No sections expected");
+                }
+            };
+            FakeSink sink = new FakeSink(new ArrayList<>(), 2);
+            ExportJob job = new ExportJob(
+                    source, processor, sink, new StepClock(0),
+                    Duration.ofMillis(6), new ExportTelemetry());
+
+            job.tick();
+            assertEquals(JobState.CAPTURING, job.state());
+            assertEquals(0, sink.queueDepth());
+
+            workerGate.countDown();
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (job.state() == JobState.CAPTURING
+                    && System.nanoTime() < deadline) {
+                job.tick();
+                Thread.sleep(1);
+            }
+            assertEquals(JobState.WRITING, job.state());
+        }
     }
 
     @Test

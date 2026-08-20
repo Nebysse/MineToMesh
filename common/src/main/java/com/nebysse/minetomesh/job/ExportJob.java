@@ -10,6 +10,8 @@ import java.util.function.LongSupplier;
 
 public final class ExportJob implements ManagedJob {
     private final CaptureSource source;
+    private final RawCaptureSource rawSource;
+    private final OrderedBatchExecutor processor;
     private final BatchSink sink;
     private final LongSupplier nanoTime;
     private final Duration budgetDuration;
@@ -20,7 +22,13 @@ public final class ExportJob implements ManagedJob {
     private boolean entitiesCaptured;
     private int sectionIndex;
     private SectionCapture currentSection;
+    private RawSectionCapture currentRawSection;
     private ChunkBatch pendingBatch;
+    private RawChunkBatch pendingRawBatch;
+    private OrderedBatchExecutor.CompletedBatch pendingProcessedBatch;
+    private long submittedRawBatches;
+    private long drainedRawBatches;
+    private boolean rawSubmissionsFinished;
     private String pendingObjectId = "";
     private long completedWorkItems;
     private String currentObjectId = "entities";
@@ -46,6 +54,8 @@ public final class ExportJob implements ManagedJob {
             Duration budgetDuration,
             ExportTelemetry telemetry) {
         this.source = Objects.requireNonNull(source, "source");
+        this.rawSource = null;
+        this.processor = null;
         this.sink = Objects.requireNonNull(sink, "sink");
         this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
         this.budgetDuration = Objects.requireNonNull(budgetDuration, "budgetDuration");
@@ -55,10 +65,46 @@ public final class ExportJob implements ManagedJob {
         }
         this.startedAtNanos = nanoTime.getAsLong();
         this.totalWorkItems = Math.addExact(1L, source.sectionCount());
+        if (telemetry.snapshot().stage() == ExportStage.IDLE) {
+            telemetry.initialize(totalWorkItems, totalWorkItems, totalWorkItems, 1, 1);
+        }
+    }
+
+    public ExportJob(
+            RawCaptureSource source,
+            OrderedBatchExecutor processor,
+            BatchSink sink,
+            LongSupplier nanoTime,
+            Duration budgetDuration,
+            ExportTelemetry telemetry) {
+        this.source = null;
+        this.rawSource = Objects.requireNonNull(source, "source");
+        this.processor = Objects.requireNonNull(processor, "processor");
+        this.sink = Objects.requireNonNull(sink, "sink");
+        this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
+        this.budgetDuration = Objects.requireNonNull(budgetDuration, "budgetDuration");
+        this.telemetry = Objects.requireNonNull(telemetry, "telemetry");
+        if (budgetDuration.isNegative() || budgetDuration.isZero()) {
+            throw new IllegalArgumentException("Capture budget must be positive");
+        }
+        this.startedAtNanos = nanoTime.getAsLong();
+        this.totalWorkItems = Math.addExact(1L, source.sectionCount());
+        if (telemetry.snapshot().stage() == ExportStage.IDLE) {
+            telemetry.initialize(
+                    totalWorkItems,
+                    totalWorkItems,
+                    totalWorkItems,
+                    processor.workerCount(),
+                    processor.workerCount());
+        }
     }
 
     @Override
     public void tick() {
+        if (processor != null) {
+            tickRawPipeline();
+            return;
+        }
         if (state.isTerminal()) {
             return;
         }
@@ -78,6 +124,7 @@ public final class ExportJob implements ManagedJob {
                     pendingBatch = null;
                     completedWorkItems++;
                     currentObjectId = pendingObjectId;
+                    telemetry.positionsCaptured(completedWorkItems, currentObjectId);
                     pendingObjectId = "";
                     continue;
                 }
@@ -115,11 +162,101 @@ public final class ExportJob implements ManagedJob {
         }
     }
 
+    private void tickRawPipeline() {
+        if (state.isTerminal()) {
+            return;
+        }
+        if (consumeWriterResult()) {
+            return;
+        }
+        if (state == JobState.WRITING) {
+            return;
+        }
+        CaptureBudget budget = CaptureBudget.start(budgetDuration, nanoTime);
+        try {
+            while (state == JobState.CAPTURING) {
+                if (pendingProcessedBatch != null) {
+                    if (!sink.offer(pendingProcessedBatch.batch())) {
+                        return;
+                    }
+                    pendingProcessedBatch = null;
+                    drainedRawBatches++;
+                    telemetry.chunksProcessed(drainedRawBatches);
+                    continue;
+                }
+                Optional<OrderedBatchExecutor.CompletedBatch> processed =
+                        processor.pollOrdered();
+                if (processed.isPresent()) {
+                    pendingProcessedBatch = processed.orElseThrow();
+                    continue;
+                }
+                if (rawSubmissionsFinished) {
+                    if (drainedRawBatches < submittedRawBatches) {
+                        return;
+                    }
+                    if (!sink.finishInput()) {
+                        return;
+                    }
+                    transition(JobState.WRITING);
+                    return;
+                }
+                if (pendingRawBatch != null) {
+                    if (!processor.submit(pendingRawBatch)) {
+                        return;
+                    }
+                    pendingRawBatch = null;
+                    submittedRawBatches++;
+                    completedWorkItems++;
+                    currentObjectId = pendingObjectId;
+                    telemetry.positionsCaptured(completedWorkItems, currentObjectId);
+                    telemetry.queues(
+                            processor.inFlightCount(), sink.queueDepth());
+                    pendingObjectId = "";
+                    continue;
+                }
+                if (!budget.hasTime()) {
+                    return;
+                }
+                if (!entitiesCaptured) {
+                    pendingRawBatch = rawSource.captureEntities();
+                    pendingObjectId = "entities";
+                    entitiesCaptured = true;
+                    continue;
+                }
+                if (currentRawSection == null) {
+                    if (sectionIndex >= rawSource.sectionCount()) {
+                        rawSubmissionsFinished = true;
+                        processor.finishSubmissions();
+                        continue;
+                    }
+                    currentRawSection = rawSource.openSection(sectionIndex);
+                    currentObjectId = currentRawSection.objectId();
+                }
+                if (currentRawSection.hasNext()) {
+                    currentRawSection.captureNext();
+                    continue;
+                }
+                pendingRawBatch = currentRawSection.finish();
+                pendingObjectId = currentRawSection.objectId();
+                currentRawSection = null;
+                sectionIndex++;
+            }
+        } catch (OutOfMemoryError error) {
+            fail("Out of memory during export capture");
+        } catch (Exception exception) {
+            fail(exception.getMessage() == null
+                    ? exception.getClass().getSimpleName() : exception.getMessage());
+        }
+    }
+
     @Override
     public void cancel(String reason) {
         Objects.requireNonNull(reason, "reason");
         if (state.isTerminal()) {
             return;
+        }
+        if (processor != null) {
+            processor.cancel(reason);
         }
         sink.cancel();
         outcomeStatus = "cancelled";
@@ -144,6 +281,10 @@ public final class ExportJob implements ManagedJob {
     @Override
     public ExportProgress progress() {
         ExportProgressSnapshot before = telemetry.snapshot();
+        long persistedBatches = sink.persistedBatchCount();
+        if (persistedBatches > 0) {
+            telemetry.batchesPersisted(persistedBatches);
+        }
         telemetry.queues(before.processingQueueDepth(), sink.queueDepth());
         telemetry.currentObject(currentObjectId);
         telemetry.elapsed(elapsed());
@@ -226,6 +367,9 @@ public final class ExportJob implements ManagedJob {
     }
 
     private void fail(String reason) {
+        if (processor != null) {
+            processor.cancel(reason);
+        }
         sink.cancel();
         failureReason = Optional.of(reason);
         outcomeStatus = "failed";
@@ -256,6 +400,14 @@ public final class ExportJob implements ManagedJob {
         SectionCapture openSection(int index) throws Exception;
     }
 
+    public interface RawCaptureSource {
+        RawChunkBatch captureEntities() throws Exception;
+
+        int sectionCount();
+
+        RawSectionCapture openSection(int index) throws Exception;
+    }
+
     public interface SectionCapture {
         String objectId();
 
@@ -266,6 +418,16 @@ public final class ExportJob implements ManagedJob {
         ChunkBatch finish() throws Exception;
     }
 
+    public interface RawSectionCapture {
+        String objectId();
+
+        boolean hasNext();
+
+        void captureNext() throws Exception;
+
+        RawChunkBatch finish() throws Exception;
+    }
+
     public interface BatchSink {
         boolean offer(ChunkBatch batch) throws Exception;
 
@@ -274,6 +436,10 @@ public final class ExportJob implements ManagedJob {
         boolean finishInput() throws Exception;
 
         Optional<WriterResult> pollResult();
+
+        default long persistedBatchCount() {
+            return 0;
+        }
 
         void cancel();
     }
