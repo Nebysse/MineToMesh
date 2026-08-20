@@ -48,6 +48,13 @@ class WandPayloadCodecTest {
     }
 
     @Test
+    void batchSizeUpdateRoundTrips() {
+        UpdateWandBatchSizePayload payload = new UpdateWandBatchSizePayload(
+                UUID.fromString("123e4567-e89b-12d3-a456-426614174000"), 16);
+        assertEquals(payload, roundTrip(UpdateWandBatchSizePayload.STREAM_CODEC, payload));
+    }
+
+    @Test
     void exportNameUpdateRoundTrips() {
         UpdateWandExportNamePayload payload =
                 new UpdateWandExportNamePayload("flower_factory");

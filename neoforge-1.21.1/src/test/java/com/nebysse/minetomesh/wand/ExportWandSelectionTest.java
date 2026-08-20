@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import com.nebysse.minetomesh.world.BlockPoint;
 import com.nebysse.minetomesh.world.Selection;
@@ -34,6 +35,7 @@ class ExportWandSelectionTest {
         assertTrue(empty.pos2().isEmpty());
         assertTrue(empty.overlayEnabled());
         assertFalse(empty.includePlayers());
+        assertEquals(4, empty.batchChunkCount());
         assertEquals("export", empty.exportName());
         assertFalse(empty.isComplete());
         assertTrue(empty.toSelection().isEmpty());
@@ -45,6 +47,7 @@ class ExportWandSelectionTest {
                 .ensureIdentity(WAND_ID)
                 .withOverlayEnabled(false)
                 .withIncludePlayers(true)
+                .withBatchChunkCount(8)
                 .withExportName("flower_factory");
         ExportWandSelection selected = initial.setEndpoint(
                 OVERWORLD, Endpoint.POS1, new BlockPos(1, 64, 2));
@@ -58,6 +61,7 @@ class ExportWandSelectionTest {
         assertTrue(cleared.pos2().isEmpty());
         assertFalse(cleared.overlayEnabled());
         assertTrue(cleared.includePlayers());
+        assertEquals(8, cleared.batchChunkCount());
         assertEquals("flower_factory", cleared.exportName());
     }
 
@@ -93,6 +97,7 @@ class ExportWandSelectionTest {
                 .setEndpoint(OVERWORLD, Endpoint.POS2, new BlockPos(30, 90, -40))
                 .withOverlayEnabled(false)
                 .withIncludePlayers(true)
+                .withBatchChunkCount(16)
                 .withExportName("codec_test");
         JsonElement encoded = ExportWandSelection.CODEC
                 .encodeStart(JsonOps.INSTANCE, original).getOrThrow();
@@ -109,6 +114,7 @@ class ExportWandSelectionTest {
                 .setEndpoint(OVERWORLD, Endpoint.POS2, new BlockPos(4, 5, 6))
                 .withOverlayEnabled(false)
                 .withIncludePlayers(true)
+                .withBatchChunkCount(1)
                 .withExportName("network_test");
         FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         ExportWandSelection.STREAM_CODEC.encode(buffer, original);
@@ -117,18 +123,20 @@ class ExportWandSelectionTest {
     }
 
     @Test
-    void codecDefaultsMissingPlayerFlagToFalse() {
-        JsonElement oldData = ExportWandSelection.CODEC.encodeStart(JsonOps.INSTANCE,
-                ExportWandSelection.empty()).getOrThrow();
+    void codecDefaultsLegacyFields() {
         ExportWandSelection decoded = ExportWandSelection.CODEC
-                .parse(JsonOps.INSTANCE, oldData).getOrThrow();
+                .parse(JsonOps.INSTANCE, JsonParser.parseString("{}"))
+                .getOrThrow();
         assertFalse(decoded.includePlayers());
+        assertEquals(4, decoded.batchChunkCount());
     }
 
     @Test
     void constructorRejectsEndpointsWithoutDimension() {
         assertThrows(IllegalArgumentException.class, () -> new ExportWandSelection(
                 Optional.of(WAND_ID), Optional.empty(), Optional.of(BlockPos.ZERO),
-                Optional.empty(), true, false, "export"));
+                Optional.empty(), true, false, 4, "export"));
+        assertThrows(IllegalArgumentException.class,
+                () -> ExportWandSelection.empty().withBatchChunkCount(17));
     }
 }

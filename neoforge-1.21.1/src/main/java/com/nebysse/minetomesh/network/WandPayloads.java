@@ -41,6 +41,9 @@ public final class WandPayloads {
         registrar.playToServer(ToggleWandIncludePlayersPayload.TYPE,
                 ToggleWandIncludePlayersPayload.STREAM_CODEC,
                 WandPayloads::handleToggleIncludePlayers);
+        registrar.playToServer(UpdateWandBatchSizePayload.TYPE,
+                UpdateWandBatchSizePayload.STREAM_CODEC,
+                WandPayloads::handleUpdateBatchSize);
         registrar.playToServer(UpdateWandExportNamePayload.TYPE,
                 UpdateWandExportNamePayload.STREAM_CODEC,
                 WandPayloads::handleUpdateExportName);
@@ -114,6 +117,25 @@ public final class WandPayloads {
             ToggleWandIncludePlayersPayload payload, IPayloadContext context) {
         withBoundWand(context, (player, stack) ->
                 ExportWandService.INSTANCE.setIncludePlayers(stack, payload.enabled()));
+    }
+
+    private static void handleUpdateBatchSize(
+            UpdateWandBatchSizePayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)
+                    || !(player.containerMenu instanceof ExportWandMenu menu)
+                    || !payload.wandId().equals(menu.binding().wandId())) {
+                return;
+            }
+            menu.resolveBoundStack(player).ifPresent(stack -> {
+                try {
+                    ExportWandService.INSTANCE.setBatchChunkCount(
+                            stack, payload.batchChunkCount());
+                } catch (IllegalArgumentException ignored) {
+                    // Invalid network values never mutate the bound wand.
+                }
+            });
+        });
     }
 
     private static void handleUpdateExportName(

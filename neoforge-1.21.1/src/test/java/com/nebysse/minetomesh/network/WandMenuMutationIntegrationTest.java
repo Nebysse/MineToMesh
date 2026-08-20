@@ -17,6 +17,10 @@ class WandMenuMutationIntegrationTest {
         assertTrue(source.contains("menu.resolveBoundStack(player)"));
         assertTrue(source.contains("setEndpoint"));
         assertTrue(source.contains("setOverlayEnabled"));
+        assertTrue(source.contains("UpdateWandBatchSizePayload"));
+        assertTrue(source.contains("setBatchChunkCount"));
+        assertTrue(source.contains("payload.wandId().equals(menu.binding().wandId())"));
+        assertTrue(source.contains("IllegalArgumentException ignored"));
         assertTrue(source.contains("ExportName.parse"));
         assertTrue(source.contains("setExportName"));
     }

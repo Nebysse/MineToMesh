@@ -2,6 +2,7 @@ package com.nebysse.minetomesh.wand;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nebysse.minetomesh.content.MineToMeshContent;
@@ -86,6 +87,18 @@ class ExportWandServiceTest {
         assertTrue(cleared.pos2().isEmpty());
         assertFalse(cleared.overlayEnabled());
         assertEquals("flower_factory", cleared.exportName());
+    }
+
+    @Test
+    void batchSizeMutationValidatesBeforeChangingTheWand() {
+        assertEquals(ExportWandService.Result.UPDATED,
+                service.setBatchChunkCount(wand, 8));
+        ExportWandSelection beforeInvalidUpdate = service.selection(wand);
+        assertEquals(8, beforeInvalidUpdate.batchChunkCount());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.setBatchChunkCount(wand, 17));
+        assertEquals(beforeInvalidUpdate, service.selection(wand));
     }
 
     @Test

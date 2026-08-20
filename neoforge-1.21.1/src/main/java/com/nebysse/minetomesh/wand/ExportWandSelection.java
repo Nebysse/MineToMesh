@@ -2,6 +2,7 @@ package com.nebysse.minetomesh.wand;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.nebysse.minetomesh.job.ExportExecutionPolicy;
 import com.nebysse.minetomesh.world.BlockPoint;
 import com.nebysse.minetomesh.world.Selection;
 import java.util.Objects;
@@ -19,6 +20,7 @@ public record ExportWandSelection(
         Optional<BlockPos> pos2,
         boolean overlayEnabled,
         boolean includePlayers,
+        int batchChunkCount,
         String exportName) {
     public static final String DEFAULT_EXPORT_NAME = "export";
     private static final Codec<UUID> UUID_CODEC = Codec.STRING.xmap(
@@ -38,6 +40,9 @@ public record ExportWandSelection(
                             .forGetter(ExportWandSelection::overlayEnabled),
                     Codec.BOOL.optionalFieldOf("include_players", false)
                             .forGetter(ExportWandSelection::includePlayers),
+                    Codec.INT.optionalFieldOf("batch_chunk_count",
+                                    ExportExecutionPolicy.DEFAULT_BATCH_CHUNKS)
+                            .forGetter(ExportWandSelection::batchChunkCount),
                     Codec.STRING.optionalFieldOf("export_name", DEFAULT_EXPORT_NAME)
                             .forGetter(ExportWandSelection::exportName))
                     .apply(instance, ExportWandSelection::new));
@@ -51,6 +56,7 @@ public record ExportWandSelection(
         pos1 = Objects.requireNonNull(pos1, "pos1");
         pos2 = Objects.requireNonNull(pos2, "pos2");
         exportName = Objects.requireNonNull(exportName, "exportName");
+        ExportExecutionPolicy.validateBatchChunks(batchChunkCount);
         boolean hasEndpoint = pos1.isPresent() || pos2.isPresent();
         if (selectionDimension.isPresent() != hasEndpoint) {
             throw new IllegalArgumentException(
@@ -61,7 +67,8 @@ public record ExportWandSelection(
     public static ExportWandSelection empty() {
         return new ExportWandSelection(
                 Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-                true, false, DEFAULT_EXPORT_NAME);
+                true, false, ExportExecutionPolicy.DEFAULT_BATCH_CHUNKS,
+                DEFAULT_EXPORT_NAME);
     }
 
     public ExportWandSelection ensureIdentity(UUID value) {
@@ -70,7 +77,7 @@ public record ExportWandSelection(
             return this;
         }
         return new ExportWandSelection(Optional.of(value), selectionDimension,
-                pos1, pos2, overlayEnabled, includePlayers, exportName);
+                pos1, pos2, overlayEnabled, includePlayers, batchChunkCount, exportName);
     }
 
     public ExportWandSelection setEndpoint(
@@ -85,27 +92,35 @@ public record ExportWandSelection(
         Optional<BlockPos> first = endpoint == Endpoint.POS1 ? Optional.of(position) : pos1;
         Optional<BlockPos> second = endpoint == Endpoint.POS2 ? Optional.of(position) : pos2;
         return new ExportWandSelection(wandId, Optional.of(dimension),
-                first, second, overlayEnabled, includePlayers, exportName);
+                first, second, overlayEnabled, includePlayers, batchChunkCount, exportName);
     }
 
     public ExportWandSelection clearSelection() {
         return new ExportWandSelection(wandId, Optional.empty(),
-                Optional.empty(), Optional.empty(), overlayEnabled, includePlayers, exportName);
+                Optional.empty(), Optional.empty(), overlayEnabled, includePlayers,
+                batchChunkCount, exportName);
     }
 
     public ExportWandSelection withOverlayEnabled(boolean value) {
         return new ExportWandSelection(wandId, selectionDimension,
-                pos1, pos2, value, includePlayers, exportName);
+                pos1, pos2, value, includePlayers, batchChunkCount, exportName);
     }
 
     public ExportWandSelection withIncludePlayers(boolean value) {
         return new ExportWandSelection(wandId, selectionDimension,
-                pos1, pos2, overlayEnabled, value, exportName);
+                pos1, pos2, overlayEnabled, value, batchChunkCount, exportName);
+    }
+
+    public ExportWandSelection withBatchChunkCount(int value) {
+        return new ExportWandSelection(wandId, selectionDimension,
+                pos1, pos2, overlayEnabled, includePlayers,
+                ExportExecutionPolicy.validateBatchChunks(value), exportName);
     }
 
     public ExportWandSelection withExportName(String value) {
         return new ExportWandSelection(wandId, selectionDimension,
-                pos1, pos2, overlayEnabled, includePlayers, Objects.requireNonNull(value, "value"));
+                pos1, pos2, overlayEnabled, includePlayers, batchChunkCount,
+                Objects.requireNonNull(value, "value"));
     }
 
     public boolean isComplete() {
@@ -133,6 +148,7 @@ public record ExportWandSelection(
         writeOptional(buffer, selection.pos2, buffer::writeBlockPos);
         buffer.writeBoolean(selection.overlayEnabled);
         buffer.writeBoolean(selection.includePlayers);
+        buffer.writeVarInt(selection.batchChunkCount);
         buffer.writeUtf(selection.exportName, 64);
     }
 
@@ -144,9 +160,11 @@ public record ExportWandSelection(
         Optional<BlockPos> pos2 = readOptional(buffer, buffer::readBlockPos);
         boolean overlayEnabled = buffer.readBoolean();
         boolean includePlayers = buffer.readBoolean();
+        int batchChunkCount = buffer.readVarInt();
         String exportName = buffer.readUtf(64);
         return new ExportWandSelection(
-                wandId, dimension, pos1, pos2, overlayEnabled, includePlayers, exportName);
+                wandId, dimension, pos1, pos2, overlayEnabled, includePlayers,
+                batchChunkCount, exportName);
     }
 
     private static <T> void writeOptional(

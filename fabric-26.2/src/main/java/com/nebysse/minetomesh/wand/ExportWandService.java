@@ -117,6 +117,16 @@ public final class ExportWandService {
         return Result.UPDATED;
     }
 
+    public Result setBatchChunkCount(ItemStack stack, int batchChunkCount) {
+        if (!isWand(stack)) {
+            return Result.INVALID_WAND;
+        }
+        ExportWandSelection candidate = ensureIdentity(selection(stack))
+                .withBatchChunkCount(batchChunkCount);
+        stack.set(MineToMeshContent.EXPORT_WAND_SELECTION, candidate);
+        return Result.UPDATED;
+    }
+
     public Result setExportName(ItemStack stack, String exportName) {
         Objects.requireNonNull(exportName, "exportName");
         if (!isWand(stack)) {

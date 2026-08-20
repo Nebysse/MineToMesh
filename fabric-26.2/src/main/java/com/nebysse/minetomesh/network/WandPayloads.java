@@ -31,6 +31,9 @@ public final class WandPayloads {
                 ToggleWandIncludePlayersPayload.TYPE,
                 ToggleWandIncludePlayersPayload.STREAM_CODEC);
         PayloadTypeRegistry.serverboundPlay().register(
+                UpdateWandBatchSizePayload.TYPE,
+                UpdateWandBatchSizePayload.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(
                 UpdateWandExportNamePayload.TYPE, UpdateWandExportNamePayload.STREAM_CODEC);
         PayloadTypeRegistry.serverboundPlay().register(
                 ExportWandRequestPayload.TYPE, ExportWandRequestPayload.STREAM_CODEC);
@@ -50,6 +53,9 @@ public final class WandPayloads {
         ServerPlayNetworking.registerGlobalReceiver(
                 ToggleWandIncludePlayersPayload.TYPE,
                 WandPayloads::handleToggleIncludePlayers);
+        ServerPlayNetworking.registerGlobalReceiver(
+                UpdateWandBatchSizePayload.TYPE,
+                WandPayloads::handleUpdateBatchSize);
         ServerPlayNetworking.registerGlobalReceiver(
                 UpdateWandExportNamePayload.TYPE, WandPayloads::handleUpdateExportName);
         ServerPlayNetworking.registerGlobalReceiver(
@@ -106,6 +112,24 @@ public final class WandPayloads {
             ServerPlayNetworking.Context context) {
         withBoundWand(context, (player, stack) ->
                 ExportWandService.INSTANCE.setIncludePlayers(stack, payload.enabled()));
+    }
+
+    private static void handleUpdateBatchSize(
+            UpdateWandBatchSizePayload payload,
+            ServerPlayNetworking.Context context) {
+        ServerPlayer player = context.player();
+        if (!(player.containerMenu instanceof ExportWandMenu menu)
+                || !payload.wandId().equals(menu.binding().wandId())) {
+            return;
+        }
+        menu.resolveBoundStack(player).ifPresent(stack -> {
+            try {
+                ExportWandService.INSTANCE.setBatchChunkCount(
+                        stack, payload.batchChunkCount());
+            } catch (IllegalArgumentException ignored) {
+                // Invalid network values never mutate the bound wand.
+            }
+        });
     }
 
     private static void handleUpdateExportName(
