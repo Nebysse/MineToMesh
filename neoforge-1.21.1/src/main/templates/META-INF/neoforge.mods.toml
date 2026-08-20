@@ -13,6 +13,9 @@ description='''
 Client and server item-owned export wand with client-side Blender-ready glTF and OBJ capture.
 '''
 
+[[mixins]]
+config="minetomesh.mixins.json"
+
 [[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"
