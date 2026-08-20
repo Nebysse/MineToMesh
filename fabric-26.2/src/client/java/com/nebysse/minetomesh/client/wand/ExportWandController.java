@@ -102,6 +102,14 @@ public final class ExportWandController {
     private List<ChunkCoordinate> currentBatch = List.of();
     private BlockPos sessionPos1;
     private BlockPos sessionPos2;
+    private int workerThreads = 1;
+
+    public void setWorkerThreads(int workerThreads) {
+        if (workerThreads < 1) {
+            throw new IllegalArgumentException("Worker threads must be positive");
+        }
+        this.workerThreads = workerThreads;
+    }
 
     public ExportWandController(JobStarter starter, JobManagerPort jobs) {
         this(starter, jobs, new SessionPacketSender() {
@@ -204,7 +212,7 @@ public final class ExportWandController {
         batchSequence = -1;
         telemetry.initialize(
                 totalChunks, totalBatches, payload.totalBatches(),
-                1, 1);
+                workerThreads, workerThreads);
         state = State.WAITING_FOR_SESSION;
         rejectionKey = "";
     }

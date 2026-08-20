@@ -1,6 +1,8 @@
 package com.nebysse.minetomesh.client;
 
 import com.nebysse.minetomesh.MineToMeshInfo;
+import com.nebysse.minetomesh.client.config.ClientExportSettings;
+import com.nebysse.minetomesh.client.config.ClientExportSettingsStore;
 import com.nebysse.minetomesh.client.selection.LockedSelectionService;
 import com.nebysse.minetomesh.client.selection.LockedSelectionStore;
 import com.nebysse.minetomesh.client.selection.WorldProfileKey;
@@ -110,6 +112,11 @@ public final class MineToMeshClient {
                 },
                 chunk -> Minecraft.getInstance().level != null
                         && Minecraft.getInstance().level.hasChunk(chunk.x(), chunk.z()));
+        ClientExportSettings settings = new ClientExportSettingsStore(
+                Minecraft.getInstance().gameDirectory.toPath()
+                        .resolve("config").resolve("minetomesh"),
+                Runtime.getRuntime().availableProcessors()).load();
+        wandController.setWorkerThreads(settings.workerThreads());
         overlayRenderer = new SelectionOverlayRenderer(
                 new HeldWandOverlaySource(), lockedSelectionService);
         WandClientReceiver.install(wandController::accept, wandController::reject);
