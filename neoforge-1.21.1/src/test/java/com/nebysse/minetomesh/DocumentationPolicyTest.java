@@ -14,7 +14,7 @@ class DocumentationPolicyTest {
     void readmeDocumentsTheWandReleaseAndMigration() throws Exception {
         String readme = read("README.md");
         for (String fragment : List.of(
-                "MineToMesh-1.2.0.jar",
+                "MineToMesh-1.3.0-neoforge-1.21.1.jar",
                 "客户端和服务端",
                 "导出魔杖",
                 "Shift+右键",
