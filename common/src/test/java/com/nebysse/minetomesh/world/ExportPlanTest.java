@@ -26,5 +26,11 @@ class ExportPlanTest {
         assertEquals(List.of(new ExportPlan.MissingChunk(-1, 4),
                 new ExportPlan.MissingChunk(2, 1)), plan.missingChunks());
         assertEquals(2, plan.totalWorkItems());
+        assertEquals(new ChunkRange(0, 1, 0, 1), plan.chunkRange());
+        assertEquals(List.of(
+                new ChunkCoordinate(0, 0),
+                new ChunkCoordinate(0, 1),
+                new ChunkCoordinate(1, 0),
+                new ChunkCoordinate(1, 1)), plan.chunkCursor().next(4));
     }
 }

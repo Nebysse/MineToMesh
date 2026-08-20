@@ -21,6 +21,14 @@ public record ExportPlan(
         return sections.size();
     }
 
+    public ChunkRange chunkRange() {
+        return ChunkRange.from(selection);
+    }
+
+    public ChunkBatchCursor chunkCursor() {
+        return chunkRange().cursor();
+    }
+
     public record SectionWork(
             ChunkSectionRef section,
             int minX,
