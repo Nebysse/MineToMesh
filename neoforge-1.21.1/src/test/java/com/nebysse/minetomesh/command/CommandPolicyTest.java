@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.mojang.brigadier.CommandDispatcher;
 import com.nebysse.minetomesh.job.ExportJobManager;
 import com.nebysse.minetomesh.job.ExportProgress;
+import com.nebysse.minetomesh.job.ExportProgressSnapshot;
+import com.nebysse.minetomesh.job.ExportStage;
 import com.nebysse.minetomesh.job.JobState;
 import com.nebysse.minetomesh.world.SelectionStore;
 import java.time.Duration;
@@ -35,15 +37,21 @@ class CommandPolicyTest {
     }
 
     @Test
-    void formatsRunningStatusWithStatePercentageQueueAndObject() {
+    void formatsRunningStatusFromTheSharedTelemetrySnapshot() {
+        ExportProgressSnapshot snapshot = new ExportProgressSnapshot(
+                ExportStage.CAPTURING, 25, 1, 4, 2, 8,
+                25, 100, 0, 0, 4, 2, 1, 2,
+                "section/0/4/0", Duration.ofSeconds(3));
         ExportProgress progress = new ExportProgress(
-                JobState.CAPTURING, 25, 100, 2, Duration.ofSeconds(3), "section/0/4/0");
+                JobState.CAPTURING, 25, 100, 2,
+                Duration.ofSeconds(3), "section/0/4/0", snapshot);
 
         String status = CommandPolicy.formatStatus(progress);
 
         assertTrue(status.contains("CAPTURING"));
         assertTrue(status.contains("25%"));
-        assertTrue(status.contains("queue=2"));
+        assertTrue(status.contains("processingQueue=1"));
+        assertTrue(status.contains("writingQueue=2"));
         assertTrue(status.contains("section/0/4/0"));
     }
 }

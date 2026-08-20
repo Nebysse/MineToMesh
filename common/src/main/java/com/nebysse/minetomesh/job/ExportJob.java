@@ -143,16 +143,19 @@ public final class ExportJob implements ManagedJob {
 
     @Override
     public ExportProgress progress() {
-        ExportTelemetry.Snapshot telemetrySnapshot = telemetry.snapshot();
+        ExportProgressSnapshot before = telemetry.snapshot();
+        telemetry.queues(before.processingQueueDepth(), sink.queueDepth());
+        telemetry.currentObject(currentObjectId);
+        telemetry.elapsed(elapsed());
+        ExportProgressSnapshot telemetrySnapshot = telemetry.snapshot();
         return new ExportProgress(
                 state,
                 Math.min(completedWorkItems, totalWorkItems),
                 totalWorkItems,
                 sink.queueDepth(),
-                elapsed(),
-                currentObjectId,
-                telemetrySnapshot.percent(),
-                telemetrySnapshot.stageKey());
+                telemetrySnapshot.elapsed(),
+                telemetrySnapshot.currentObjectId(),
+                telemetrySnapshot);
     }
 
     @Override

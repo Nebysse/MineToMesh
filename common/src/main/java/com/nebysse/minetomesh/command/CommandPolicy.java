@@ -1,6 +1,7 @@
 package com.nebysse.minetomesh.command;
 
 import com.nebysse.minetomesh.job.ExportProgress;
+import com.nebysse.minetomesh.job.ExportProgressSnapshot;
 import java.util.Objects;
 
 public final class CommandPolicy {
@@ -18,14 +19,16 @@ public final class CommandPolicy {
 
     public static String formatStatus(ExportProgress progress) {
         Objects.requireNonNull(progress, "progress");
-        int percentage = progress.totalWorkItems() == 0
-                ? 0
-                : (int) Math.min(100L,
-                        Math.multiplyExact(progress.completedWorkItems(), 100L)
-                                / progress.totalWorkItems());
+        ExportProgressSnapshot snapshot = progress.snapshot();
         return progress.state().name()
-                + " " + percentage + "%"
-                + " queue=" + progress.queueDepth()
-                + " current=" + progress.currentObjectId();
+                + " " + snapshot.percent() + "%"
+                + " stage=" + snapshot.stageKey()
+                + " chunks=" + snapshot.synchronizedChunks()
+                + "/" + snapshot.totalChunks()
+                + " workers=" + snapshot.effectiveWorkers()
+                + "/" + snapshot.configuredWorkers()
+                + " processingQueue=" + snapshot.processingQueueDepth()
+                + " writingQueue=" + snapshot.writingQueueDepth()
+                + " current=" + snapshot.currentObjectId();
     }
 }

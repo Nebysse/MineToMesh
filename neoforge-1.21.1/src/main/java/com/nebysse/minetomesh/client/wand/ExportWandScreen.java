@@ -3,8 +3,8 @@ package com.nebysse.minetomesh.client.wand;
 import com.nebysse.minetomesh.MineToMesh;
 import com.nebysse.minetomesh.client.selection.LockedSelection;
 import com.nebysse.minetomesh.client.selection.LockedSelectionService;
+import com.nebysse.minetomesh.job.ExportProgressSnapshot;
 import com.nebysse.minetomesh.job.ExportSummary;
-import com.nebysse.minetomesh.job.ExportTelemetry;
 import com.nebysse.minetomesh.network.ExportWandRequestPayload;
 import com.nebysse.minetomesh.network.ToggleWandOverlayPayload;
 import com.nebysse.minetomesh.network.ToggleWandIncludePlayersPayload;
@@ -556,7 +556,7 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
             case READY -> statusLine = "就绪";
             case WAITING_FOR_GRANT -> statusLine = "等待服务端授权";
             case EXPORTING -> {
-                ExportTelemetry.Snapshot snapshot = controller.telemetry().snapshot();
+                ExportProgressSnapshot snapshot = controller.telemetry().snapshot();
                 statusLine = snapshot.percent() + "% " + snapshot.stageKey();
             }
             case COMPLETED -> statusLine = "导出完成";
@@ -759,7 +759,7 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
                     Math.max(2, 140 * percent / 100), 9);
         }
         if (state == ExportWandController.State.EXPORTING) {
-            ExportTelemetry.Snapshot snapshot = controller.telemetry().snapshot();
+            ExportProgressSnapshot snapshot = controller.telemetry().snapshot();
             graphics.drawString(font, Component.literal(
                             snapshot.percent() + "% · " + snapshot.stageKey()),
                     screenX(right + 8), screenY(top + 128), BLUE, false);
