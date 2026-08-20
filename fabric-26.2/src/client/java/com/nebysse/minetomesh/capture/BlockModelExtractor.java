@@ -321,6 +321,13 @@ public final class BlockModelExtractor {
             diagnostics = List.copyOf(diagnostics);
         }
 
+        public CaptureResult(
+                CaptureState state,
+                BatchCounters counters,
+                List<Diagnostic> diagnostics) {
+            this(state, counters, diagnostics, GeometryAdjustmentStats.ZERO);
+        }
+
         public boolean hasGeometry() {
             return state == CaptureState.GEOMETRY;
         }

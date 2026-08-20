@@ -1,6 +1,7 @@
 package com.nebysse.minetomesh.fabric.client;
 
 import com.nebysse.minetomesh.client.MineToMeshClient;
+import com.nebysse.minetomesh.job.DefaultExportPipeline;
 import com.nebysse.minetomesh.network.ExportWandGrantedPayload;
 import com.nebysse.minetomesh.network.ExportWandRejectedPayload;
 import com.nebysse.minetomesh.network.WandClientReceiver;
@@ -24,14 +25,13 @@ public final class MineToMeshFabricClient implements ClientModInitializer {
                 (payload, context) -> context.client().execute(
                         () -> WandClientReceiver.receive(payload)));
         client = new MineToMeshClient(
-                (selection, name, options, telemetry) -> {
-                    throw new IllegalStateException(
-                            "Fabric export pipeline has not been initialized");
-                },
-                (selection, name) -> {
-                    throw new IllegalStateException(
-                            "Fabric export pipeline has not been initialized");
-                });
+                (selection, name, options, telemetry) ->
+                        DefaultExportPipeline.create(
+                                net.minecraft.client.Minecraft.getInstance(),
+                                selection, name, options, telemetry),
+                (selection, name) -> DefaultExportPipeline.create(
+                        net.minecraft.client.Minecraft.getInstance(),
+                        selection, name));
         client.register();
     }
 }
