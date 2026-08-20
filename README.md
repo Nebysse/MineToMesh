@@ -1,10 +1,12 @@
 # MineToMesh
 
-MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与文本 OpenUSD（USDA）场景。1.2.0 增加精确共面 Quad 分层，解决 Powered Rail 和草方块叠层在 Blender 中发黑或闪烁的问题；USDA 保留源 Quad，并通过 PreviewSurface 材质引用外部 PNG。导出魔杖继续负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
+MineToMesh 是 Minecraft 世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与文本 OpenUSD（USDA）场景。当前同时维护 Minecraft 1.21.1 NeoForge 正式版 `1.2.0` 与 Minecraft 26.2 Fabric Alpha `1.2.0-fabric-alpha.1`。1.2.0 增加精确共面 Quad 分层，解决 Powered Rail 和草方块叠层在 Blender 中发黑或闪烁的问题；USDA 保留源 Quad，并通过 PreviewSurface 材质引用外部 PNG。导出魔杖负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
 
 ## 特性
 
-- 客户端和服务端均需安装，目标版本为 NeoForge 21.1.244。
+- 客户端和服务端均需安装同一平台、同一版本的 MineToMesh。
+- NeoForge 正式版目标为 Minecraft 1.21.1、NeoForge 21.1.244、Java 21。
+- Fabric Alpha 目标为 Minecraft 26.2、Fabric Loader 0.19.3、Fabric API 0.157.0+26.2、Java 25。
 - NeoForge 使用正式模组列表封面，作者显示为 `岚苍穹 nebysse`。
 - 每根导出魔杖独立保存 `wandId`、维度、POS1、POS2、Overlay 开关与导出名；移动物品不会丢失数据，两根魔杖互不串线。
 - 支持原版及模组 `BakedModel`、流体、方块实体渲染器和普通实体渲染器。
@@ -22,11 +24,19 @@ MineToMesh 是面向 Minecraft 1.21.1 NeoForge 的世界导出模组，将客户
 
 ## 安装
 
-1. 安装 Minecraft 1.21.1 与 NeoForge 21.1.244。
-2. 将 `MineToMesh-1.2.0.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
+### NeoForge 1.21.1 正式版
+
+1. 安装 Minecraft 1.21.1、NeoForge 21.1.244 与 Java 21。
+2. 将 `MineToMesh-1.2.0-neoforge-1.21.1.jar` 放入**客户端和服务端**的 `mods/` 目录，移除其他 MineToMesh JAR。
 3. 启动游戏。实际导出文件写在发起操作的玩家客户端。
 
-1.2.0 的运行时 Mod ID 为 `minetomesh`，Java 根包为 `com.nebysse.minetomesh`。客户端与服务端必须使用同一版本。
+### Fabric 26.2 Alpha
+
+1. 安装 Minecraft 26.2、Fabric Loader 0.19.3、Fabric API 0.157.0+26.2 与 Java 25。
+2. 将 `MineToMesh-1.2.0-fabric-alpha.1+mc26.2.jar` 放入**客户端和服务端**的 `mods/` 目录。
+3. Alpha 版保留魔杖、GUI、选区、权限、Overlay、方块、流体、方块实体、实体以及 glTF/USDA 双格式导出。第三方渲染后端尚未声明兼容；无法取得 CPU 几何时会生成占位体并写入诊断。
+
+运行时 Mod ID 为 `minetomesh`，Java 根包为 `com.nebysse.minetomesh`。客户端与服务端必须使用同一平台和版本。
 
 ## 导出魔杖
 
@@ -124,12 +134,26 @@ Flywheel 1.x 等受支持后端会在捕获期间临时进入 CPU 备用渲染�
 ## 构建与验证
 
 ```powershell
-./gradlew.bat clean test build
-./gradlew.bat runServerSmoke
+# 完整双平台构建
+./gradlew.bat clean build --no-configuration-cache
+
+# 分平台构建
+./gradlew.bat :neoforge-1.21.1:test :neoforge-1.21.1:build --no-configuration-cache
+./gradlew.bat :fabric-26.2:test :fabric-26.2:build --no-configuration-cache
+
+# 服务端冒烟
+./gradlew.bat :neoforge-1.21.1:runServerSmoke --no-configuration-cache
+./gradlew.bat :fabric-26.2:fabricServerSmoke --no-configuration-cache
+
 Set-Location tools
 npm install
 npm run validate -- ..\run\minetomesh-exports\smoke\smoke.gltf
 ```
+
+最终 JAR：
+
+- `neoforge-1.21.1/build/libs/MineToMesh-1.2.0-neoforge-1.21.1.jar`
+- `fabric-26.2/build/libs/MineToMesh-1.2.0-fabric-alpha.1+mc26.2.jar`
 
 真实模组验收建议使用 Create 6.0.10、Flywheel 1.0.6 与 Touhou Little Maid 1.5.3，分别把 glTF 与 USDA 导入 Blender 5.2，对比原点、尺度、材质、UV、Quad 拓扑和 Powered Rail 叠层，并用 Khronos Validator 要求 glTF `numErrors: 0`。
 
