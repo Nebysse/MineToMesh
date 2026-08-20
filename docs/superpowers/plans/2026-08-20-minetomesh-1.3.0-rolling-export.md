@@ -16,7 +16,7 @@
 
 - `common/src/main/java/com/nebysse/minetomesh/world/ChunkCoordinate.java` — loader-free horizontal chunk coordinate.
 - `common/src/main/java/com/nebysse/minetomesh/world/ChunkRange.java` — normalized lazy horizontal range and checked totals.
-- `common/src/main/java/com/nebysse/minetomesh/world/ChunkBatchCursor.java` — deterministic `X → Z` rolling window cursor.
+- `common/src/main/java/com/nebysse/minetomesh/world/ChunkBatchCursor.java` — deterministic compact `4×4` macro-window cursor.
 - `common/src/main/java/com/nebysse/minetomesh/job/ExportExecutionPolicy.java` — batch/CPU worker validation and effective worker count.
 - `common/src/main/java/com/nebysse/minetomesh/job/ExportStage.java` — stable full-lifecycle stages and percentage bands.
 - `common/src/main/java/com/nebysse/minetomesh/job/ExportProgressSnapshot.java` — one immutable snapshot for GUI, command, and logs.
@@ -164,7 +164,7 @@ git commit -m "build: begin MineToMesh 1.3.0"
 
 - [ ] **Step 1: Write failing cursor tests**
 
-Cover normalized negative coordinates, `1/4/16` batch sizes, the short final batch, stable X-then-Z order, checked totals, reset independence, and no prebuilt list. Example:
+Cover normalized negative coordinates, `1/4/16` batch sizes, short edge batches, stable macro-window/X/Z order, checked totals, reset independence, and no prebuilt list. Assert every emitted batch fits inside one `4×4` bounding area, including batch size `16`. Example:
 
 ```java
 @Test
@@ -178,6 +178,8 @@ void emitsAtMostFourChunksInStableOrder() {
             new ChunkCoordinate(-1, 4),
             new ChunkCoordinate(0, 2)), cursor.next(4));
     assertEquals(5, cursor.remaining());
+    assertTrue(cursor.currentBatchBounds().width() <= 4);
+    assertTrue(cursor.currentBatchBounds().depth() <= 4);
 }
 
 @Test
@@ -213,13 +215,21 @@ public record ChunkRange(int minX, int maxX, int minZ, int maxZ) {
 
 public final class ChunkBatchCursor {
     public List<ChunkCoordinate> next(int batchSize);
+    public BatchBounds currentBatchBounds();
     public long emitted();
     public long remaining();
     public boolean exhausted();
+
+    public record BatchBounds(
+            int minX, int maxX, int minZ, int maxZ,
+            ChunkCoordinate center) {
+        public int width();
+        public int depth();
+    }
 }
 ```
 
-`next()` validates `1..16`, constructs only the returned list, and advances a pair of integer cursors. Use `Math.addExact`, `Math.multiplyExact`, and `Math.floorDiv`.
+`next()` validates `1..16`, constructs only the returned list, and advances through `4×4` macro windows. It fully consumes one macro window before moving to the next, so no batch spans two macro windows. `currentBatchBounds()` returns the emitted batch bounds and center. `totalBatches(batchSize)` sums `ceil(windowChunkCount / batchSize)` for full 4×4 windows, X/Z edge windows, and the corner window; it must not use global `ceil(totalChunks / batchSize)`. Use `Math.addExact`, `Math.multiplyExact`, and `Math.floorDiv`.
 
 Replace `ExportPlan`'s eager `sections` list with selection, `ChunkRange`, build-height section bounds, and final diagnostics. A platform `WorldPlanner` must plan only the currently authorized chunk list.
 
@@ -1076,6 +1086,6 @@ git commit -m "docs: verify MineToMesh 1.3.0"
 - **Spec coverage:** Tasks 2/8/9/10 cover rolling force loading and tracking; Tasks 5/10 cover safe multithreading; Tasks 4/11 cover full progress; Tasks 6/8/9 cover random ticks and crash recovery; Tasks 3/11 cover GUI persistence; Task 12 covers reports, packaging, and acceptance.
 - **Thread boundary:** No task moves Minecraft world, renderer, atlas, TextureManager, NativeImage, or GPU access off the legal game/render thread.
 - **Determinism:** Task 5 sequences all worker results before the single writer.
-- **Resource bounds:** The current forced window is at most 16; worker and writer queues are bounded; the chunk plan is lazy.
+- **Resource bounds:** The current forced window is at most 16 and always lies inside one compact 4×4 macro window; worker and writer queues are bounded; the chunk plan is lazy.
 - **Cleanup:** Common cleanup is idempotent and both platform lifecycle tasks wire disconnect, timeout, server stop, dimension change, GUI close, and explicit cancellation.
 - **No placeholders:** All decisions, ranges, formulas, payload fields, timeouts, files, commands, and expected outcomes are specified.
