@@ -1,6 +1,6 @@
 # MineToMesh
 
-MineToMesh 是 Minecraft 世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与文本 OpenUSD（USDA）场景。当前同时维护 Minecraft 1.21.1 NeoForge 正式版 `1.3.0` 与 Minecraft 26.2 Fabric Alpha `1.3.0-fabric-alpha.1`。1.2.0 增加精确共面 Quad 分层，解决 Powered Rail 和草方块叠层在 Blender 中发黑或闪烁的问题；USDA 保留源 Quad，并通过 PreviewSurface 材质引用外部 PNG。导出魔杖负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
+MineToMesh 是 Minecraft 世界导出模组，将客户端当前已加载的选区写成 Blender 可编辑的 glTF 2.0 与文本 OpenUSD（USDA）场景。当前同时维护 Minecraft 1.21.1 NeoForge 正式版 `1.3.0` 与 Minecraft 26.2 Fabric Alpha `1.3.0-fabric-alpha.1`。1.2.0 增加精确共面 Quad 分层，解决 Powered Rail 和草方块叠层在 Blender 中发黑或闪烁的问题；1.3.0 增加超视距选区滚动导出：服务端按紧凑批次强制加载、冻结全服随机刻、临时切换追踪中心，并支持可中途停止的完整生命周期进度。USDA 保留源 Quad，并通过 PreviewSurface 材质引用外部 PNG。导出魔杖负责保存和编辑选区，服务端权威校验物品身份、坐标与权限，客户端负责渲染捕获、纹理读取和文件写入。
 
 ## 特性
 
@@ -21,6 +21,11 @@ MineToMesh 是 Minecraft 世界导出模组，将客户端当前已加载的选�
 - 坐标以选区最小点为局部原点，一格对应 Blender 一米；导出空间保留 Minecraft 的 `(X,Y,Z)` 相对方向，不执行轴反射。
 - Blender 导入 glTF 后执行 Y-up 到 Z-up 的轴旋转：Minecraft `+X` → Blender `+X`、Minecraft `+Y` → Blender `+Z`、Minecraft `+Z` → Blender `-Y`。
 - 未加载区块不会被强制加载，诊断写入 `report.json`。
+- 1.3.0 起超视距选区由服务端按最大 `4×4` 紧凑宏窗口滚动强加载，不再产生缺失区块的成功结果。
+- 导出期间全服 `randomTickSpeed = 0`，结束、取消、失败、断线、超时与服务端重启后均恢复会话前数值。
+- 全服同时只允许一个导出会话；批次大小 `1～16` 随魔杖保存，数据处理线程数随本机保存。
+- 导出中途可点击“停止导出”，GUI 保持打开，清理完成后可再次导出。
+- 导出期间玩家视角所在世界可能短暂卸载或闪烁，这是追踪中心切换的预期表现。
 
 ## 安装
 
