@@ -13,6 +13,9 @@
   "license": "MIT",
   "icon": "minetomesh_logo.png",
   "environment": "*",
+  "mixins": [
+    "minetomesh.mixins.json"
+  ],
   "entrypoints": {
     "main": [
       "com.nebysse.minetomesh.fabric.MineToMeshFabric"

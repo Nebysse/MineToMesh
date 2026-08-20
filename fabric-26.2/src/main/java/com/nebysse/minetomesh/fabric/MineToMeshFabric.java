@@ -3,6 +3,7 @@ package com.nebysse.minetomesh.fabric;
 import com.nebysse.minetomesh.MineToMeshInfo;
 import com.nebysse.minetomesh.content.MineToMeshContent;
 import com.nebysse.minetomesh.network.WandPayloads;
+import com.nebysse.minetomesh.server.ServerExportSessions;
 import com.nebysse.minetomesh.wand.WandInteractionHandler;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -16,6 +17,7 @@ public final class MineToMeshFabric implements ModInitializer {
     public void onInitialize() {
         MineToMeshContent.register();
         WandPayloads.registerServer();
+        ServerExportSessions.register();
         WandInteractionHandler.register();
         if (Boolean.getBoolean("minetomesh.serverSmoke")) {
             ServerLifecycleEvents.SERVER_STARTED.register(server -> {
