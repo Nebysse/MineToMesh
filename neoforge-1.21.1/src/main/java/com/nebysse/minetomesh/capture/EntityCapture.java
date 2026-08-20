@@ -9,14 +9,17 @@ import com.nebysse.minetomesh.scene.Diagnostic;
 import com.nebysse.minetomesh.scene.MaterialKey;
 import com.nebysse.minetomesh.scene.PrimitiveData;
 import com.nebysse.minetomesh.scene.Vec3f;
+import com.nebysse.minetomesh.world.ChunkCoordinate;
 import com.nebysse.minetomesh.world.Selection;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -64,6 +67,31 @@ public final class EntityCapture {
                 bounds,
                 entity -> shouldInclude(category(entity), includePlayers, entity.isRemoved(),
                         entity.getBoundingBox(), bounds)));
+        entities.sort(Comparator
+                .comparing(EntityCapture::registryId)
+                .thenComparing(Entity::getUUID));
+        return List.copyOf(entities);
+    }
+
+    public List<Entity> collectInChunks(
+            ClientLevel level,
+            Selection selection,
+            boolean includePlayers,
+            List<ChunkCoordinate> chunks) {
+        Objects.requireNonNull(level, "level");
+        Objects.requireNonNull(selection, "selection");
+        Objects.requireNonNull(chunks, "chunks");
+        Set<Long> members = new HashSet<>();
+        for (ChunkCoordinate chunk : chunks) {
+            members.add(net.minecraft.world.level.ChunkPos.asLong(chunk.x(), chunk.z()));
+        }
+        AABB bounds = selectionBounds(selection);
+        List<Entity> entities = new ArrayList<>(level.getEntities(
+                (Entity) null,
+                bounds,
+                entity -> members.contains(entity.chunkPosition().toLong())
+                        && shouldInclude(category(entity), includePlayers, entity.isRemoved(),
+                                entity.getBoundingBox(), bounds)));
         entities.sort(Comparator
                 .comparing(EntityCapture::registryId)
                 .thenComparing(Entity::getUUID));

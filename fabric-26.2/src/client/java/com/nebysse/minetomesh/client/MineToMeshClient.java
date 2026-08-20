@@ -15,6 +15,18 @@ import com.nebysse.minetomesh.content.MineToMeshContent;
 import com.nebysse.minetomesh.job.ExportJob;
 import com.nebysse.minetomesh.job.ExportJobManager;
 import com.nebysse.minetomesh.job.ManagedJob;
+import com.nebysse.minetomesh.network.BatchCaptureCompletedPayload;
+import com.nebysse.minetomesh.network.BatchClientReadablePayload;
+import com.nebysse.minetomesh.network.BatchLoadStartedPayload;
+import com.nebysse.minetomesh.network.BatchReadyPayload;
+import com.nebysse.minetomesh.network.CancelExportRequestPayload;
+import com.nebysse.minetomesh.network.ExportCancelAcknowledgedPayload;
+import com.nebysse.minetomesh.network.ExportClientCompletedPayload;
+import com.nebysse.minetomesh.network.ExportProgressHeartbeatPayload;
+import com.nebysse.minetomesh.network.ExportSessionAcceptedPayload;
+import com.nebysse.minetomesh.network.ExportSessionFailedPayload;
+import com.nebysse.minetomesh.network.ExportSessionFinishedPayload;
+import com.nebysse.minetomesh.network.ExportSessionRejectedPayload;
 import com.nebysse.minetomesh.network.WandClientReceiver;
 import com.nebysse.minetomesh.wand.ExportWandMenu;
 import com.nebysse.minetomesh.world.SelectionStore;
@@ -27,6 +39,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.resources.Identifier;
@@ -68,10 +81,39 @@ public final class MineToMeshClient {
         lockedSelectionService = new LockedSelectionService(
                 lockedSelectionStore, MineToMeshClient::currentWorldProfile);
         wandController = new ExportWandController(
-                wandJobStarter, ExportWandController.fromManager(jobManager));
+                wandJobStarter, ExportWandController.fromManager(jobManager),
+                new ExportWandController.SessionPacketSender() {
+                    @Override
+                    public void send(BatchClientReadablePayload payload) {
+                        ClientPlayNetworking.send(payload);
+                    }
+
+                    @Override
+                    public void send(BatchCaptureCompletedPayload payload) {
+                        ClientPlayNetworking.send(payload);
+                    }
+
+                    @Override
+                    public void send(ExportProgressHeartbeatPayload payload) {
+                        ClientPlayNetworking.send(payload);
+                    }
+
+                    @Override
+                    public void send(CancelExportRequestPayload payload) {
+                        ClientPlayNetworking.send(payload);
+                    }
+
+                    @Override
+                    public void send(ExportClientCompletedPayload payload) {
+                        ClientPlayNetworking.send(payload);
+                    }
+                },
+                chunk -> Minecraft.getInstance().level != null
+                        && Minecraft.getInstance().level.hasChunk(chunk.x(), chunk.z()));
         overlayRenderer = new SelectionOverlayRenderer(
                 new HeldWandOverlaySource(), lockedSelectionService);
         WandClientReceiver.install(wandController::accept, wandController::reject);
+        WandClientReceiver.installSessionHandler(this::receiveSessionPayload);
         commands = new MineToMeshCommands(
                 selectionStore, jobManager, commandJobFactory);
     }
@@ -106,6 +148,25 @@ public final class MineToMeshClient {
                 });
     }
 
+    private void receiveSessionPayload(
+            net.minecraft.network.protocol.common.custom.CustomPacketPayload payload) {
+        if (payload instanceof ExportSessionAcceptedPayload value) {
+            wandController.sessionAccepted(value);
+        } else if (payload instanceof ExportSessionRejectedPayload value) {
+            wandController.sessionRejected(value);
+        } else if (payload instanceof BatchLoadStartedPayload value) {
+            wandController.batchLoadStarted(value);
+        } else if (payload instanceof BatchReadyPayload value) {
+            wandController.batchReady(value);
+        } else if (payload instanceof ExportCancelAcknowledgedPayload value) {
+            wandController.cancelAcknowledged(value);
+        } else if (payload instanceof ExportSessionFinishedPayload value) {
+            wandController.sessionFinished(value);
+        } else if (payload instanceof ExportSessionFailedPayload value) {
+            wandController.sessionFailed(value);
+        }
+    }
+
     private static Optional<WorldProfileKey> currentWorldProfile() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.getCurrentServer() != null) {
@@ -135,6 +196,7 @@ public final class MineToMeshClient {
             activeDimension = dimension;
         }
         jobManager.tick();
+        wandController.tick();
         notifyTerminalResult();
     }
 

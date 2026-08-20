@@ -16,6 +16,18 @@ import com.nebysse.minetomesh.job.DefaultExportPipeline;
 import com.nebysse.minetomesh.job.ExportJob;
 import com.nebysse.minetomesh.job.ExportJobManager;
 import com.nebysse.minetomesh.job.ManagedJob;
+import com.nebysse.minetomesh.network.BatchCaptureCompletedPayload;
+import com.nebysse.minetomesh.network.BatchClientReadablePayload;
+import com.nebysse.minetomesh.network.BatchLoadStartedPayload;
+import com.nebysse.minetomesh.network.BatchReadyPayload;
+import com.nebysse.minetomesh.network.CancelExportRequestPayload;
+import com.nebysse.minetomesh.network.ExportCancelAcknowledgedPayload;
+import com.nebysse.minetomesh.network.ExportClientCompletedPayload;
+import com.nebysse.minetomesh.network.ExportProgressHeartbeatPayload;
+import com.nebysse.minetomesh.network.ExportSessionAcceptedPayload;
+import com.nebysse.minetomesh.network.ExportSessionFailedPayload;
+import com.nebysse.minetomesh.network.ExportSessionFinishedPayload;
+import com.nebysse.minetomesh.network.ExportSessionRejectedPayload;
 import com.nebysse.minetomesh.network.WandClientReceiver;
 import com.nebysse.minetomesh.wand.ExportWandMenu;
 import com.nebysse.minetomesh.world.SelectionStore;
@@ -28,6 +40,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -69,10 +83,39 @@ public final class MineToMeshClient {
         wandController = new ExportWandController(
                 (selection, name, options, telemetry) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name, options, telemetry),
-                ExportWandController.fromManager(jobManager));
+                ExportWandController.fromManager(jobManager),
+                new ExportWandController.SessionPacketSender() {
+                    @Override
+                    public void send(BatchClientReadablePayload payload) {
+                        PacketDistributor.sendToServer(payload);
+                    }
+
+                    @Override
+                    public void send(BatchCaptureCompletedPayload payload) {
+                        PacketDistributor.sendToServer(payload);
+                    }
+
+                    @Override
+                    public void send(ExportProgressHeartbeatPayload payload) {
+                        PacketDistributor.sendToServer(payload);
+                    }
+
+                    @Override
+                    public void send(CancelExportRequestPayload payload) {
+                        PacketDistributor.sendToServer(payload);
+                    }
+
+                    @Override
+                    public void send(ExportClientCompletedPayload payload) {
+                        PacketDistributor.sendToServer(payload);
+                    }
+                },
+                chunk -> Minecraft.getInstance().level != null
+                        && Minecraft.getInstance().level.hasChunk(chunk.x(), chunk.z()));
         overlayRenderer = new SelectionOverlayRenderer(
                 new HeldWandOverlaySource(), lockedSelectionService);
         WandClientReceiver.install(wandController::accept, wandController::reject);
+        WandClientReceiver.installSessionHandler(this::receiveSessionPayload);
         commands = new MineToMeshCommands(selectionStore, jobManager,
                 (selection, name) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name));
@@ -83,6 +126,24 @@ public final class MineToMeshClient {
         NeoForge.EVENT_BUS.addListener(overlayRenderer::onRenderLevel);
         modBus.addListener(this::onRegisterReloadListeners);
         modBus.addListener(this::onRegisterMenuScreens);
+    }
+
+    private void receiveSessionPayload(CustomPacketPayload payload) {
+        if (payload instanceof ExportSessionAcceptedPayload value) {
+            wandController.sessionAccepted(value);
+        } else if (payload instanceof ExportSessionRejectedPayload value) {
+            wandController.sessionRejected(value);
+        } else if (payload instanceof BatchLoadStartedPayload value) {
+            wandController.batchLoadStarted(value);
+        } else if (payload instanceof BatchReadyPayload value) {
+            wandController.batchReady(value);
+        } else if (payload instanceof ExportCancelAcknowledgedPayload value) {
+            wandController.cancelAcknowledged(value);
+        } else if (payload instanceof ExportSessionFinishedPayload value) {
+            wandController.sessionFinished(value);
+        } else if (payload instanceof ExportSessionFailedPayload value) {
+            wandController.sessionFailed(value);
+        }
     }
 
     private static Optional<WorldProfileKey> currentWorldProfile() {
@@ -115,6 +176,7 @@ public final class MineToMeshClient {
             activeDimension = dimension;
         }
         jobManager.tick();
+        wandController.tick();
         notifyTerminalResult();
     }
 
