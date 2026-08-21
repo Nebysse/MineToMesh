@@ -41,6 +41,9 @@ public final class WandPayloads {
         registrar.playToServer(ToggleWandIncludePlayersPayload.TYPE,
                 ToggleWandIncludePlayersPayload.STREAM_CODEC,
                 WandPayloads::handleToggleIncludePlayers);
+        registrar.playToServer(ToggleWandChunkMergePayload.TYPE,
+                ToggleWandChunkMergePayload.STREAM_CODEC,
+                WandPayloads::handleToggleChunkMerge);
         registrar.playToServer(UpdateWandBatchSizePayload.TYPE,
                 UpdateWandBatchSizePayload.STREAM_CODEC,
                 WandPayloads::handleUpdateBatchSize);
@@ -161,6 +164,12 @@ public final class WandPayloads {
             ToggleWandIncludePlayersPayload payload, IPayloadContext context) {
         withBoundWand(context, (player, stack) ->
                 ExportWandService.INSTANCE.setIncludePlayers(stack, payload.enabled()));
+    }
+
+    private static void handleToggleChunkMerge(
+            ToggleWandChunkMergePayload payload, IPayloadContext context) {
+        withBoundWand(context, (player, stack) ->
+                ExportWandService.INSTANCE.setChunkMerged(stack, payload.enabled()));
     }
 
     private static void handleUpdateBatchSize(

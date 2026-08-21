@@ -114,6 +114,7 @@ public final class ExportWandController {
     private UUID sessionId;
     private String exportName = "export";
     private boolean includePlayers;
+    private boolean chunkMerged;
     private int batchChunkCount;
     private long totalChunks;
     private long totalBatches;
@@ -127,6 +128,7 @@ public final class ExportWandController {
     private long pendingSinceMillis;
     private long ackTarget;
     private boolean awaitingAck;
+    private long syncedChunks;
 
     public void setWorkerThreads(int workerThreads) {
         if (workerThreads < 1) {
@@ -242,14 +244,23 @@ public final class ExportWandController {
         sessionId = payload.sessionId();
         exportName = payload.exportName();
         includePlayers = payload.includePlayers();
+        chunkMerged = payload.chunkMerged();
         batchChunkCount = payload.batchSize();
         totalChunks = payload.totalChunks();
         totalBatches = payload.totalBatches();
         sessionPos1 = payload.pos1();
         sessionPos2 = payload.pos2();
         batchSequence = -1;
+        syncedChunks = 0;
+        int minY = Math.min(payload.pos1().getY(), payload.pos2().getY());
+        int maxY = Math.max(payload.pos1().getY(), payload.pos2().getY());
+        long ySections = Math.floorDiv(maxY, 16) - Math.floorDiv(minY, 16) + 1L;
+        // Capture units: one legacy entities batch + one unit per section work
+        // + one entity unit per session batch.
+        long totalUnits = Math.addExact(1L,
+                Math.addExact(Math.multiplyExact(totalChunks, ySections), totalBatches));
         telemetry.initialize(
-                totalChunks, totalBatches, payload.totalBatches(),
+                totalChunks, totalBatches, totalUnits,
                 workerThreads, workerThreads);
         state = State.WAITING_FOR_SESSION;
         rejectionKey = "";
@@ -312,7 +323,7 @@ public final class ExportWandController {
         ExportName name = ExportName.parse(exportName);
         RollingCapture started = rollingFactory.start(
                 selectionForSession(), name,
-                new ExportOptions(includePlayers), telemetry);
+                new ExportOptions(includePlayers, chunkMerged), telemetry);
         if (!jobs.start(started.job())) {
             throw new IllegalStateException("minetomesh.error.wand.already_running");
         }
@@ -428,6 +439,8 @@ public final class ExportWandController {
         }
         if (state == State.WAITING_FOR_CHUNKS && !pendingChunks.isEmpty()) {
             if (allReadable(pendingChunks)) {
+                syncedChunks += pendingChunks.size();
+                telemetry.chunksSynchronized(syncedChunks);
                 sender.send(new BatchClientReadablePayload(
                         sessionId, boundWandId, boundDimension, batchSequence));
                 try {
@@ -526,6 +539,7 @@ public final class ExportWandController {
         pendingChunks = List.of();
         awaitingAck = false;
         ackTarget = 0;
+        syncedChunks = 0;
         summary = Optional.empty();
     }
 

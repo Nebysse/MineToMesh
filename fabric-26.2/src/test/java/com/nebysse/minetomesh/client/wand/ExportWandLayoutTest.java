@@ -13,10 +13,12 @@ class ExportWandLayoutTest {
     void approvedFrameAndWideCoordinateFieldsRemainInsideLeftPanel() {
         assertEquals(new ExportWandScreen.Rect(0, 0, 384, 20),
                 ExportWandScreen.Layout.HEADER);
-        assertEquals(new ExportWandScreen.Rect(4, 24, 208, 166),
+        assertEquals(new ExportWandScreen.Rect(4, 24, 208, 188),
                 ExportWandScreen.Layout.LEFT);
-        assertEquals(new ExportWandScreen.Rect(216, 24, 164, 166),
+        assertEquals(new ExportWandScreen.Rect(216, 24, 164, 188),
                 ExportWandScreen.Layout.RIGHT);
+        assertEquals(new ExportWandScreen.Rect(4, 216, 376, 18),
+                ExportWandScreen.Layout.LOG);
         for (int index = 0; index < 6; index++) {
             ExportWandScreen.Rect field =
                     ExportWandScreen.Layout.coordinateField(index);
@@ -48,6 +50,21 @@ class ExportWandLayoutTest {
         }
         assertFalse(toggles.get(0).intersects(toggles.get(1)));
         assertFalse(toggles.get(1).intersects(toggles.get(2)));
+    }
+
+    @Test
+    void mergeToggleAndNumericFieldsStayInsidePanels() {
+        ExportWandScreen.Rect merge = ExportWandScreen.Layout.chunkMergeButton();
+        assertTrue(contains(ExportWandScreen.Layout.LEFT, merge));
+        assertFalse(merge.intersects(ExportWandScreen.Layout.overlayButton()));
+        assertFalse(merge.intersects(ExportWandScreen.Layout.includePlayersButton()));
+
+        ExportWandScreen.Rect batch = ExportWandScreen.Layout.batchField();
+        ExportWandScreen.Rect worker = ExportWandScreen.Layout.workerField();
+        assertTrue(contains(ExportWandScreen.Layout.RIGHT, batch));
+        assertTrue(contains(ExportWandScreen.Layout.RIGHT, worker));
+        assertFalse(batch.intersects(worker));
+        assertFalse(batch.intersects(ExportWandScreen.Layout.cancelButton()));
     }
 
     @Test

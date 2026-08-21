@@ -213,7 +213,7 @@ class RollingSessionFlowTest {
         return new ExportSessionAcceptedPayload(
                 SESSION, WAND, DIMENSION,
                 new BlockPos(0, -60, 0), new BlockPos(100, 300, 100),
-                "castle", true, 4, 8, 2);
+                "castle", true, false, 4, 8, 2);
     }
 
     private static BatchLoadStartedPayload loadStarted(long sequence) {

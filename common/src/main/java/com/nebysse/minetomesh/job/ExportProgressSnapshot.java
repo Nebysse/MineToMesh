@@ -42,7 +42,7 @@ public record ExportProgressSnapshot(
         if (synchronizedChunks > totalChunks
                 || processedChunks > totalChunks
                 || capturedPositions > totalPositions
-                || persistedBatches > totalBatches) {
+                || persistedBatches > Math.max(totalBatches, totalPositions)) {
             throw new IllegalArgumentException("Completed progress exceeds its total");
         }
         if (elapsed.isNegative()) {

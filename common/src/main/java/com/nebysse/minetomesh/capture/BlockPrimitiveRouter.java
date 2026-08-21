@@ -8,6 +8,8 @@ public final class BlockPrimitiveRouter {
             "minecraft:block/grass_block_side_overlay";
     public static final String OVERLAY_OBJECT_NAME =
             "selection/grass_side_overlay";
+    public static final String MERGED_CHUNKS_OBJECT_NAME =
+            "selection/chunks_merged";
 
     private BlockPrimitiveRouter() {
     }

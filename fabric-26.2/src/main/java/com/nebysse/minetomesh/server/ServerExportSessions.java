@@ -156,6 +156,7 @@ public final class ServerExportSessions {
                 sessionId, request.wandId(), dimension,
                 selection.pos1().orElseThrow(), selection.pos2().orElseThrow(),
                 request.exportName(), selection.includePlayers(),
+                selection.chunkMerged(),
                 selection.batchChunkCount(), range.totalChunks(),
                 range.totalBatches(selection.batchChunkCount())));
         ServerExportSessionCoordinator.BeginResult result = coordinator.begin(

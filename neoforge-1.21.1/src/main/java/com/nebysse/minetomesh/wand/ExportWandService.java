@@ -118,6 +118,16 @@ public final class ExportWandService {
         return Result.UPDATED;
     }
 
+    public Result setChunkMerged(ItemStack stack, boolean chunkMerged) {
+        if (!isWand(stack)) {
+            return Result.INVALID_WAND;
+        }
+        ExportWandSelection candidate = ensureIdentity(selection(stack))
+                .withChunkMerged(chunkMerged);
+        stack.set(MineToMeshContent.EXPORT_WAND_SELECTION.get(), candidate);
+        return Result.UPDATED;
+    }
+
     public Result setBatchChunkCount(ItemStack stack, int batchChunkCount) {
         if (!isWand(stack)) {
             return Result.INVALID_WAND;

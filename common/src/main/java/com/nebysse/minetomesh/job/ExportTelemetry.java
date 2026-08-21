@@ -142,8 +142,13 @@ public final class ExportTelemetry {
     public void writerStage(WriterStage stage) {
         Objects.requireNonNull(stage, "stage");
         switch (stage) {
+            // Streaming sinks start draining while capture is still running;
+            // the writing band must wait until every position is captured.
             case DRAINING -> reference.updateAndGet(previous ->
-                    previous.advance(ExportStage.WRITING, 80));
+                    previous.capturedPositions() >= previous.totalPositions()
+                            && previous.totalPositions() > 0
+                            ? previous.advance(ExportStage.WRITING, 80)
+                            : previous);
             case TEXTURES, DOCUMENTS, REPORT -> finalizing();
             case COMMITTED -> finalizationStep(FinalizationStep.PUBLISHED);
         }
@@ -246,14 +251,18 @@ public final class ExportTelemetry {
         }
 
         State withPersistedBatches(long completed) {
-            long next = Math.max(persistedBatches, Math.min(completed, totalBatches));
+            long boundedTotal = Math.max(totalPositions, 1);
+            long next = Math.max(persistedBatches, Math.min(completed, boundedTotal));
             State counted = copy(stage, percent, batchSequence,
                     synchronizedChunks, capturedPositions, processedChunks, next,
                     processingQueueDepth, writingQueueDepth,
                     currentObjectId, elapsed, finalizationSteps);
+            if (totalPositions > 0 && capturedPositions < totalPositions) {
+                return counted;
+            }
             return counted.advance(
                     ExportStage.WRITING,
-                    bandPercent(ExportStage.WRITING, next, totalBatches));
+                    bandPercent(ExportStage.WRITING, next, totalPositions));
         }
 
         State withBatchSequence(long sequence) {

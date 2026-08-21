@@ -7,7 +7,9 @@ import com.nebysse.minetomesh.job.ExportProgressSnapshot;
 import com.nebysse.minetomesh.job.ExportSummary;
 import com.nebysse.minetomesh.network.ExportWandRequestPayload;
 import com.nebysse.minetomesh.network.ToggleWandOverlayPayload;
+import com.nebysse.minetomesh.network.ToggleWandChunkMergePayload;
 import com.nebysse.minetomesh.network.ToggleWandIncludePlayersPayload;
+import com.nebysse.minetomesh.network.UpdateWandBatchSizePayload;
 import com.nebysse.minetomesh.network.UpdateWandEndpointPayload;
 import com.nebysse.minetomesh.network.UpdateWandExportNamePayload;
 import com.nebysse.minetomesh.output.ExportName;
@@ -97,9 +99,9 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
 
     public static final class Layout {
         public static final Rect HEADER = new Rect(0, 0, 384, 20);
-        public static final Rect LEFT = new Rect(4, 24, 208, 166);
-        public static final Rect RIGHT = new Rect(216, 24, 164, 166);
-        public static final Rect LOG = new Rect(4, 194, 376, 18);
+        public static final Rect LEFT = new Rect(4, 24, 208, 188);
+        public static final Rect RIGHT = new Rect(216, 24, 164, 188);
+        public static final Rect LOG = new Rect(4, 216, 376, 18);
 
         static Rect endpointTitle(Endpoint endpoint) {
             int y = LEFT.y() + (endpoint == Endpoint.POS1 ? 8 : 74);
@@ -136,6 +138,18 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
             return new Rect(LEFT.x() + 136, LEFT.y() + 144, 60, 16);
         }
 
+        static Rect chunkMergeButton() {
+            return new Rect(LEFT.x() + 12, LEFT.y() + 162, 184, 16);
+        }
+
+        static Rect batchField() {
+            return new Rect(RIGHT.x() + 8, RIGHT.y() + 171, 70, 14);
+        }
+
+        static Rect workerField() {
+            return new Rect(RIGHT.x() + 86, RIGHT.y() + 171, 70, 14);
+        }
+
         static Rect nameField() {
             return new Rect(RIGHT.x() + 8, RIGHT.y() + 34, 148, 16);
         }
@@ -165,6 +179,12 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
     private boolean overlayVisible;
     private boolean selectionLocked;
     private boolean includePlayers;
+    private boolean chunkMerged;
+    private Button chunkMergeButton;
+    private EditBox batchField;
+    private EditBox workerField;
+    private boolean batchWasFocused;
+    private boolean workerWasFocused;
     private boolean controllerBound;
     private boolean nameWasFocused;
     private final boolean[] coordinateWasFocused = new boolean[6];
@@ -177,7 +197,7 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
             Component title,
             ExportWandController controller,
             LockedSelectionService lockedSelectionService) {
-        super(menu, inventory, title, 384, 216);
+        super(menu, inventory, title, 384, 238);
         this.controller = Objects.requireNonNull(controller, "controller");
         this.lockedSelectionService = Objects.requireNonNull(
                 lockedSelectionService, "lockedSelectionService");
@@ -266,6 +286,15 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
                 ExportWandTextures.GUI_059,
                 ExportWandTextures.GUI_060,
                 () -> includePlayers));
+        chunkMergeButton = addRenderableWidget(skinnedToggleButton(
+                Component.literal("合并网格"),
+                Layout.chunkMergeButton(), pressed -> toggleChunkMerge(),
+                ExportWandTextures.GUI_043,
+                ExportWandTextures.GUI_044,
+                ExportWandTextures.GUI_045,
+                ExportWandTextures.GUI_059,
+                ExportWandTextures.GUI_060,
+                () -> chunkMerged));
     }
 
     private void createActionWidgets() {
@@ -279,6 +308,30 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         nameField.setTextColorUneditable(MID);
         nameField.setMaxLength(64);
         addRenderableWidget(nameField);
+
+        Rect batchSkin = Layout.batchField();
+        batchField = new EditBox(font,
+                screenX(batchSkin.x() + 4), screenY(batchSkin.y() + 2),
+                batchSkin.width() - 8, batchSkin.height() - 4,
+                Component.literal("批次"));
+        batchField.setBordered(false);
+        batchField.setTextColor(LIGHT);
+        batchField.setTextColorUneditable(MID);
+        batchField.setMaxLength(2);
+        batchField.setValue(Integer.toString(menu.selection().batchChunkCount()));
+        addRenderableWidget(batchField);
+
+        Rect workerSkin = Layout.workerField();
+        workerField = new EditBox(font,
+                screenX(workerSkin.x() + 4), screenY(workerSkin.y() + 2),
+                workerSkin.width() - 8, workerSkin.height() - 4,
+                Component.literal("线程"));
+        workerField.setBordered(false);
+        workerField.setTextColor(LIGHT);
+        workerField.setTextColorUneditable(MID);
+        workerField.setMaxLength(2);
+        workerField.setValue(Integer.toString(loadWorkerSettings().workerThreads()));
+        addRenderableWidget(workerField);
 
         exportButton = addRenderableWidget(skinnedButton(
                 Component.literal("导出"), Layout.exportButton(),
@@ -335,6 +388,9 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         setEndpoint(Endpoint.POS2, selection.pos2().orElse(null));
         if (!nameField.isFocused()) {
             nameField.setValue(selection.exportName());
+        }
+        if (!batchField.isFocused()) {
+            batchField.setValue(Integer.toString(selection.batchChunkCount()));
         }
     }
 
@@ -426,12 +482,18 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
     private void syncOverlayFromMenu() {
         overlayVisible = menu.selection().overlayEnabled();
         includePlayers = menu.selection().includePlayers();
+        chunkMerged = menu.selection().chunkMerged();
         updateLockedSelectionState();
     }
 
     private void toggleIncludePlayers() {
         includePlayers = !includePlayers;
         send(new ToggleWandIncludePlayersPayload(includePlayers));
+    }
+
+    private void toggleChunkMerge() {
+        chunkMerged = !chunkMerged;
+        send(new ToggleWandChunkMergePayload(chunkMerged));
     }
 
     private String currentDimension() {
@@ -473,6 +535,42 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         send(new UpdateWandExportNamePayload(name.value()));
     }
 
+    private com.nebysse.minetomesh.client.config.ClientExportSettings loadWorkerSettings() {
+        return new com.nebysse.minetomesh.client.config.ClientExportSettingsStore(
+                minecraft.gameDirectory.toPath().resolve("config").resolve("minetomesh"),
+                Runtime.getRuntime().availableProcessors()).load();
+    }
+
+    private void commitBatchField() {
+        try {
+            int value = Integer.parseInt(batchField.getValue().trim());
+            com.nebysse.minetomesh.job.ExportExecutionPolicy.validateBatchChunks(value);
+            batchField.setValue(Integer.toString(value));
+            batchField.setTextColor(LIGHT);
+            send(new UpdateWandBatchSizePayload(menu.binding().wandId(), value));
+        } catch (IllegalArgumentException exception) {
+            batchField.setTextColor(RED);
+        }
+    }
+
+    private void commitWorkerField() {
+        try {
+            int value = Integer.parseInt(workerField.getValue().trim());
+            int cpus = Runtime.getRuntime().availableProcessors();
+            com.nebysse.minetomesh.client.config.ClientExportSettings settings =
+                    com.nebysse.minetomesh.client.config.ClientExportSettings.clamped(
+                            value, cpus);
+            workerField.setValue(Integer.toString(settings.workerThreads()));
+            workerField.setTextColor(LIGHT);
+            controller.setWorkerThreads(settings.workerThreads());
+            new com.nebysse.minetomesh.client.config.ClientExportSettingsStore(
+                    minecraft.gameDirectory.toPath().resolve("config").resolve("minetomesh"),
+                    cpus).save(settings);
+        } catch (NumberFormatException | java.io.IOException exception) {
+            workerField.setTextColor(RED);
+        }
+    }
+
     private void send(CustomPacketPayload payload) {
         if (minecraft.getConnection() != null) {
             ClientPlayNetworking.send(payload);
@@ -504,6 +602,9 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         boolean nameValid = isNameValid();
         exportButton.active = nameValid && !sessionBusy;
         cancelButton.active = sessionBusy;
+        chunkMergeButton.active = !sessionBusy;
+        batchField.setEditable(!sessionBusy);
+        workerField.setEditable(!sessionBusy);
         for (int index = 0; index < coordinateFields.size(); index++) {
             coordinateFields.get(index).setTextColor(
                     coordinateModels.get(index).isInvalid() ? RED : LIGHT);
@@ -528,6 +629,18 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
             committed = true;
         }
         nameWasFocused = focused;
+        boolean batchFocused = batchField.isFocused();
+        if (batchWasFocused && !batchFocused) {
+            commitBatchField();
+            committed = true;
+        }
+        batchWasFocused = batchFocused;
+        boolean workerFocused = workerField.isFocused();
+        if (workerWasFocused && !workerFocused) {
+            commitWorkerField();
+            committed = true;
+        }
+        workerWasFocused = workerFocused;
         return committed;
     }
 
@@ -597,6 +710,14 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         }
         if (nameField != null && nameField.isFocused() && isNameValid()) {
             commitExportName();
+            return;
+        }
+        if (batchField != null && batchField.isFocused()) {
+            commitBatchField();
+            return;
+        }
+        if (workerField != null && workerField.isFocused()) {
+            commitWorkerField();
         }
     }
 
@@ -660,7 +781,33 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
                 return true;
             }
         }
+        if (batchField.isHovered() || batchField.isFocused()) {
+            stepNumericField(batchField, verticalAmount > 0 ? 1 : -1, 1, 16,
+                    this::commitBatchField);
+            return true;
+        }
+        if (workerField.isHovered() || workerField.isFocused()) {
+            stepNumericField(workerField, verticalAmount > 0 ? 1 : -1, 1,
+                    com.nebysse.minetomesh.job.ExportExecutionPolicy.clampWorkers(
+                            16, Runtime.getRuntime().availableProcessors()),
+                    this::commitWorkerField);
+            return true;
+        }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
+    private void stepNumericField(
+            EditBox field, int delta, int min, int max, Runnable commit) {
+        int current;
+        try {
+            current = Integer.parseInt(field.getValue().trim());
+        } catch (NumberFormatException exception) {
+            current = min;
+        }
+        field.setValue(Integer.toString(
+                Math.max(min, Math.min(max, current + delta))));
+        field.setTextColor(LIGHT);
+        commit.run();
     }
 
     @Override
@@ -744,6 +891,10 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
                 screenX(secondTitle.x()), screenY(secondTitle.y() - 1));
         graphics.text(font, Component.literal("终点 SECOND"),
                 screenX(secondTitle.x() + 16), screenY(secondTitle.y() + 1), BLUE, false);
+        graphics.text(font, Component.literal("每批区块 1-16"),
+                screenX(Layout.batchField().x()), screenY(Layout.batchField().y() - 9), MID, false);
+        graphics.text(font, Component.literal("处理线程"),
+                screenX(Layout.workerField().x()), screenY(Layout.workerField().y() - 9), MID, false);
 
         for (int index = 0; index < coordinateFields.size(); index++) {
             Rect field = Layout.coordinateField(index);

@@ -20,6 +20,7 @@ public record ExportWandSelection(
         Optional<BlockPos> pos2,
         boolean overlayEnabled,
         boolean includePlayers,
+        boolean chunkMerged,
         int batchChunkCount,
         String exportName) {
     public static final String DEFAULT_EXPORT_NAME = "export";
@@ -40,6 +41,8 @@ public record ExportWandSelection(
                             .forGetter(ExportWandSelection::overlayEnabled),
                     Codec.BOOL.optionalFieldOf("include_players", false)
                             .forGetter(ExportWandSelection::includePlayers),
+                    Codec.BOOL.optionalFieldOf("chunk_merged", false)
+                            .forGetter(ExportWandSelection::chunkMerged),
                     Codec.INT.optionalFieldOf("batch_chunk_count",
                                     ExportExecutionPolicy.DEFAULT_BATCH_CHUNKS)
                             .forGetter(ExportWandSelection::batchChunkCount),
@@ -67,7 +70,7 @@ public record ExportWandSelection(
     public static ExportWandSelection empty() {
         return new ExportWandSelection(
                 Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-                true, false, ExportExecutionPolicy.DEFAULT_BATCH_CHUNKS,
+                true, false, false, ExportExecutionPolicy.DEFAULT_BATCH_CHUNKS,
                 DEFAULT_EXPORT_NAME);
     }
 
@@ -77,7 +80,8 @@ public record ExportWandSelection(
             return this;
         }
         return new ExportWandSelection(Optional.of(value), selectionDimension,
-                pos1, pos2, overlayEnabled, includePlayers, batchChunkCount, exportName);
+                pos1, pos2, overlayEnabled, includePlayers, chunkMerged,
+                batchChunkCount, exportName);
     }
 
     public ExportWandSelection setEndpoint(
@@ -92,34 +96,44 @@ public record ExportWandSelection(
         Optional<BlockPos> first = endpoint == Endpoint.POS1 ? Optional.of(position) : pos1;
         Optional<BlockPos> second = endpoint == Endpoint.POS2 ? Optional.of(position) : pos2;
         return new ExportWandSelection(wandId, Optional.of(dimension),
-                first, second, overlayEnabled, includePlayers, batchChunkCount, exportName);
+                first, second, overlayEnabled, includePlayers, chunkMerged,
+                batchChunkCount, exportName);
     }
 
     public ExportWandSelection clearSelection() {
         return new ExportWandSelection(wandId, Optional.empty(),
                 Optional.empty(), Optional.empty(), overlayEnabled, includePlayers,
-                batchChunkCount, exportName);
+                chunkMerged, batchChunkCount, exportName);
     }
 
     public ExportWandSelection withOverlayEnabled(boolean value) {
         return new ExportWandSelection(wandId, selectionDimension,
-                pos1, pos2, value, includePlayers, batchChunkCount, exportName);
+                pos1, pos2, value, includePlayers, chunkMerged,
+                batchChunkCount, exportName);
     }
 
     public ExportWandSelection withIncludePlayers(boolean value) {
         return new ExportWandSelection(wandId, selectionDimension,
-                pos1, pos2, overlayEnabled, value, batchChunkCount, exportName);
+                pos1, pos2, overlayEnabled, value, chunkMerged,
+                batchChunkCount, exportName);
+    }
+
+    public ExportWandSelection withChunkMerged(boolean value) {
+        return new ExportWandSelection(wandId, selectionDimension,
+                pos1, pos2, overlayEnabled, includePlayers, value,
+                batchChunkCount, exportName);
     }
 
     public ExportWandSelection withBatchChunkCount(int value) {
         return new ExportWandSelection(wandId, selectionDimension,
-                pos1, pos2, overlayEnabled, includePlayers,
+                pos1, pos2, overlayEnabled, includePlayers, chunkMerged,
                 ExportExecutionPolicy.validateBatchChunks(value), exportName);
     }
 
     public ExportWandSelection withExportName(String value) {
         return new ExportWandSelection(wandId, selectionDimension,
-                pos1, pos2, overlayEnabled, includePlayers, batchChunkCount,
+                pos1, pos2, overlayEnabled, includePlayers, chunkMerged,
+                batchChunkCount,
                 Objects.requireNonNull(value, "value"));
     }
 
@@ -148,6 +162,7 @@ public record ExportWandSelection(
         writeOptional(buffer, selection.pos2, buffer::writeBlockPos);
         buffer.writeBoolean(selection.overlayEnabled);
         buffer.writeBoolean(selection.includePlayers);
+        buffer.writeBoolean(selection.chunkMerged);
         buffer.writeVarInt(selection.batchChunkCount);
         buffer.writeUtf(selection.exportName, 64);
     }
@@ -160,11 +175,12 @@ public record ExportWandSelection(
         Optional<BlockPos> pos2 = readOptional(buffer, buffer::readBlockPos);
         boolean overlayEnabled = buffer.readBoolean();
         boolean includePlayers = buffer.readBoolean();
+        boolean chunkMerged = buffer.readBoolean();
         int batchChunkCount = buffer.readVarInt();
         String exportName = buffer.readUtf(64);
         return new ExportWandSelection(
                 wandId, dimension, pos1, pos2, overlayEnabled, includePlayers,
-                batchChunkCount, exportName);
+                chunkMerged, batchChunkCount, exportName);
     }
 
     private static <T> void writeOptional(

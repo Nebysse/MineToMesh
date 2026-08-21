@@ -34,6 +34,8 @@ public final class StreamingUsdaSession implements Closeable {
     private final Map<MaterialKey, UsdaCurveSpool> blockCurves = new LinkedHashMap<>();
     private final Map<MaterialKey, UsdaMeshSpool> overlayMeshes = new LinkedHashMap<>();
     private final Map<MaterialKey, UsdaCurveSpool> overlayCurves = new LinkedHashMap<>();
+    private final Map<MaterialKey, UsdaMeshSpool> chunkMergedMeshes = new LinkedHashMap<>();
+    private final Map<MaterialKey, UsdaCurveSpool> chunkMergedCurves = new LinkedHashMap<>();
     private final Set<MaterialKey> materials = new LinkedHashSet<>();
     private final Map<CapturedNode.Kind, Map<String, Integer>> usedNames =
             new EnumMap<>(CapturedNode.Kind.class);
@@ -74,7 +76,16 @@ public final class StreamingUsdaSession implements Closeable {
                 case BLOCK_ENTITY -> appendGlobal(
                         node, blockMeshes, blockCurves, "block-entities");
                 case OVERLAY -> appendOverlay(node);
-                case CHUNK, ENTITY, PLACEHOLDER -> appendOrdinary(node);
+                case CHUNK -> {
+                    if (node.name().equals(
+                            BlockPrimitiveRouter.MERGED_CHUNKS_OBJECT_NAME)) {
+                        appendGlobal(node, chunkMergedMeshes,
+                                chunkMergedCurves, "chunks-merged");
+                    } else {
+                        appendOrdinary(node);
+                    }
+                }
+                case ENTITY, PLACEHOLDER -> appendOrdinary(node);
             }
         }
     }
@@ -155,7 +166,7 @@ public final class StreamingUsdaSession implements Closeable {
             try (BufferedWriter out = Files.newBufferedWriter(usdaPath, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
                 writeHeader(out);
-                writeCategory(out, "Chunks", categoryFragments.get(CapturedNode.Kind.CHUNK).path);
+                writeChunks(out);
                 writeBlockEntities(out);
                 writeCategory(out, "Entities", categoryFragments.get(CapturedNode.Kind.ENTITY).path);
                 writeCategory(out, "Placeholders",
@@ -195,6 +206,24 @@ public final class StreamingUsdaSession implements Closeable {
     private void writeCategory(BufferedWriter out, String name, Path fragment) throws IOException {
         out.write("    def Xform \"" + name + "\"\n    {\n");
         copy(fragment, out);
+        out.write("    }\n");
+    }
+
+    private void writeChunks(BufferedWriter out) throws IOException {
+        out.write("    def Xform \"Chunks\"\n    {\n");
+        copy(categoryFragments.get(CapturedNode.Kind.CHUNK).path, out);
+        if (!chunkMergedMeshes.isEmpty() || !chunkMergedCurves.isEmpty()) {
+            out.write("        def Xform \"selection_chunks_merged\"\n        {\n");
+            for (Map.Entry<MaterialKey, UsdaMeshSpool> entry : sorted(chunkMergedMeshes)) {
+                out.write(entry.getValue().finish("ChunksMerged_" + UsdaNames.material(entry.getKey())));
+            }
+            for (Map.Entry<MaterialKey, UsdaCurveSpool> entry : sorted(chunkMergedCurves)) {
+                out.write(entry.getValue().finish("ChunksMerged_lines_"
+                        + UsdaNames.material(entry.getKey())));
+            }
+            out.write("        }\n");
+            nodeCount = Math.addExact(nodeCount, 1L);
+        }
         out.write("    }\n");
     }
 
@@ -334,7 +363,8 @@ public final class StreamingUsdaSession implements Closeable {
         IOException failure = null;
         try { closeCategoryWriters(); } catch (IOException exception) { failure = exception; }
         for (Iterable<? extends Closeable> spools : List.of(
-                blockMeshes.values(), blockCurves.values(), overlayMeshes.values(), overlayCurves.values())) {
+                blockMeshes.values(), blockCurves.values(), overlayMeshes.values(), overlayCurves.values(),
+                chunkMergedMeshes.values(), chunkMergedCurves.values())) {
             try { closeAll(spools); } catch (IOException exception) {
                 if (failure == null) failure = exception; else failure.addSuppressed(exception);
             }

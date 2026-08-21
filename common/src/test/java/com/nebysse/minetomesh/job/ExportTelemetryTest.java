@@ -20,12 +20,19 @@ class ExportTelemetryTest {
         assertSnapshot(telemetry, ExportStage.SYNCHRONIZING_CHUNKS, 12);
 
         telemetry.positionsCaptured(500, "section/5");
-        assertSnapshot(telemetry, ExportStage.CAPTURING, 42);
+        assertSnapshot(telemetry, ExportStage.CAPTURING, 50);
 
         telemetry.chunksProcessed(25);
         assertSnapshot(telemetry, ExportStage.PROCESSING, 68);
 
+        // Persisted batches stay in the capture band until capture completes.
         telemetry.batchesPersisted(12);
+        assertSnapshot(telemetry, ExportStage.PROCESSING, 68);
+
+        telemetry.positionsCaptured(1_000, "section/last");
+        assertSnapshot(telemetry, ExportStage.PROCESSING, 80);
+
+        telemetry.batchesPersisted(500);
         assertSnapshot(telemetry, ExportStage.WRITING, 87);
 
         telemetry.finalizing();

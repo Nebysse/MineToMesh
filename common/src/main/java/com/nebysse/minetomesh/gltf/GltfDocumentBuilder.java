@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.nebysse.minetomesh.MineToMeshInfo;
+import com.nebysse.minetomesh.capture.BlockPrimitiveRouter;
 import com.nebysse.minetomesh.scene.CapturedNode;
 import com.nebysse.minetomesh.scene.MaterialKey;
 import com.nebysse.minetomesh.scene.TextureKey;
@@ -73,7 +74,9 @@ public final class GltfDocumentBuilder {
                     "Node name is already bound to " + existingKind + ": " + capturedNode.name());
         }
 
-        if (capturedNode.kind() == CapturedNode.Kind.OVERLAY) {
+        if (capturedNode.kind() == CapturedNode.Kind.OVERLAY
+                || capturedNode.name().equals(
+                        BlockPrimitiveRouter.MERGED_CHUNKS_OBJECT_NAME)) {
             MergedNode existing = overlayNodes.get(capturedNode.name());
             if (existing != null && !existing.extras().equals(capturedNode.extras())) {
                 throw new IllegalArgumentException(

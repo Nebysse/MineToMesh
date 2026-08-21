@@ -98,7 +98,7 @@ class WandPayloadCodecTest {
         assertRoundTrip(ExportSessionAcceptedPayload.STREAM_CODEC,
                 new ExportSessionAcceptedPayload(session, wand, dimension,
                         new BlockPos(0, 1, 2), new BlockPos(3, 4, 5),
-                        "castle", true, 4, 40, 10));
+                        "castle", true, true, 4, 40, 10));
         assertRoundTrip(ExportSessionRejectedPayload.STREAM_CODEC,
                 new ExportSessionRejectedPayload(session, wand, dimension, "busy"));
         assertRoundTrip(BatchLoadStartedPayload.STREAM_CODEC,

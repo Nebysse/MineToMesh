@@ -135,7 +135,7 @@ class ExportWandSelectionTest {
     void constructorRejectsEndpointsWithoutDimension() {
         assertThrows(IllegalArgumentException.class, () -> new ExportWandSelection(
                 Optional.of(WAND_ID), Optional.empty(), Optional.of(BlockPos.ZERO),
-                Optional.empty(), true, false, 4, "export"));
+                Optional.empty(), true, false, false, 4, "export"));
         assertThrows(IllegalArgumentException.class,
                 () -> ExportWandSelection.empty().withBatchChunkCount(17));
     }

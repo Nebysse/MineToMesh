@@ -300,6 +300,9 @@ public final class DefaultExportPipeline {
 
             @Override
             public String objectId() {
+                if (options.mergeChunks()) {
+                    return BlockPrimitiveRouter.MERGED_CHUNKS_OBJECT_NAME;
+                }
                 return "chunk/" + work.section().chunkX() + "/"
                         + work.section().chunkZ() + "/section/" + work.section().sectionY();
             }
@@ -365,10 +368,12 @@ public final class DefaultExportPipeline {
                             objectId(),
                             CapturedNode.Kind.CHUNK,
                             sealed.primitives(),
-                            Map.of(
-                                    "chunkX", work.section().chunkX(),
-                                    "chunkZ", work.section().chunkZ(),
-                                    "sectionY", work.section().sectionY())));
+                            options.mergeChunks()
+                                    ? Map.of("mergePolicy", "GLOBAL_NAME")
+                                    : Map.of(
+                                            "chunkX", work.section().chunkX(),
+                                            "chunkZ", work.section().chunkZ(),
+                                            "sectionY", work.section().sectionY())));
                 }
                 if (!overlaySealed.primitives().isEmpty()) {
                     nodes.add(new CapturedNode(

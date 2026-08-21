@@ -23,6 +23,7 @@ final class SessionPayloadCodecs {
         identity(b, p.sessionId(), p.wandId(), p.dimension());
         b.writeBlockPos(p.pos1()); b.writeBlockPos(p.pos2());
         b.writeUtf(p.exportName(), 64); b.writeBoolean(p.includePlayers());
+        b.writeBoolean(p.chunkMerged());
         b.writeVarInt(p.batchSize()); b.writeVarLong(p.totalChunks());
         b.writeVarLong(p.totalBatches());
     }
@@ -31,7 +32,7 @@ final class SessionPayloadCodecs {
         Identity i = identity(b);
         return new ExportSessionAcceptedPayload(i.sessionId, i.wandId, i.dimension,
                 b.readBlockPos(), b.readBlockPos(), b.readUtf(64), b.readBoolean(),
-                b.readVarInt(), b.readVarLong(), b.readVarLong());
+                b.readBoolean(), b.readVarInt(), b.readVarLong(), b.readVarLong());
     }
 
     static void rejected(FriendlyByteBuf b, ExportSessionRejectedPayload p) {
