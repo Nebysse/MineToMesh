@@ -25,7 +25,7 @@ class IdentityMigrationContractTest {
 
         assertEquals("minetomesh", properties.getProperty("mod_id"));
         assertEquals("MineToMesh", properties.getProperty("mod_name"));
-        assertEquals("1.3.0", properties.getProperty("neoforge_mod_version"));
+        assertEquals("1.4.0", properties.getProperty("neoforge_mod_version"));
         assertEquals("com.nebysse.minetomesh", properties.getProperty("mod_group_id"));
         assertTrue(read("build.gradle").contains("MineToMesh-${version}-neoforge-1.21.1.jar"));
         assertTrue(Files.readString(repositoryRoot().resolve("settings.gradle"))

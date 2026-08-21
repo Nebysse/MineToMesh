@@ -18,8 +18,8 @@ final class FabricMetadataTest {
         JsonObject depends = root.getAsJsonObject("depends");
 
         assertEquals("minetomesh", root.get("id").getAsString());
-        assertEquals("1.3.0", MineToMeshInfo.CORE_VERSION);
-        assertEquals("1.3.0-fabric-alpha.1", MineToMeshFabric.VERSION);
+        assertEquals("1.4.0", MineToMeshInfo.CORE_VERSION);
+        assertEquals("1.4.0-fabric-alpha.1", MineToMeshFabric.VERSION);
         assertEquals("*", root.get("environment").getAsString());
         assertEquals(">=0.19.3", depends.get("fabricloader").getAsString());
         assertEquals("~26.2", depends.get("minecraft").getAsString());
