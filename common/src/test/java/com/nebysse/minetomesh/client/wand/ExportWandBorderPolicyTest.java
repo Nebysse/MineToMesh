@@ -7,14 +7,14 @@ import org.junit.jupiter.api.Test;
 
 class ExportWandBorderPolicyTest {
     @Test
-    void convertsEightPhysicalPixelsAtActiveGuiScale() {
+    void bordersStayConstantAcrossGuiScales() {
         assertEquals(8, ExportWandBorderPolicy.logicalBorder(
                 8, 1.0, 64, 64, 64, 64));
-        assertEquals(4, ExportWandBorderPolicy.logicalBorder(
+        assertEquals(8, ExportWandBorderPolicy.logicalBorder(
                 8, 2.0, 64, 64, 64, 64));
-        assertEquals(3, ExportWandBorderPolicy.logicalBorder(
+        assertEquals(8, ExportWandBorderPolicy.logicalBorder(
                 8, 3.0, 64, 64, 64, 64));
-        assertEquals(2, ExportWandBorderPolicy.logicalBorder(
+        assertEquals(8, ExportWandBorderPolicy.logicalBorder(
                 8, 4.0, 64, 64, 64, 64));
     }
 

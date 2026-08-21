@@ -17,7 +17,9 @@ public final class ExportWandBorderPolicy {
         if (physicalPixels == 0) {
             return 0;
         }
-        int target = Math.max(1, (int) Math.round(physicalPixels / guiScale));
+        // GuiGraphics works in logical pixels; the active GUI scale only
+        // affects the final framebuffer upscale and must not shrink borders.
+        int target = physicalPixels;
         int safeMaximum = Math.min(
                 Math.min((sourceWidth - 1) / 2, (sourceHeight - 1) / 2),
                 Math.min((destinationWidth - 1) / 2, (destinationHeight - 1) / 2));
