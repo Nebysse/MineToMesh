@@ -496,11 +496,14 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         super.containerTick();
         controller.tick();
         commitFocusLosses();
-        boolean exporting = controller.state() == ExportWandController.State.EXPORTING;
+        boolean sessionBusy = switch (controller.state()) {
+            case WAITING_FOR_GRANT, WAITING_FOR_SESSION, LOADING_BATCH,
+                    WAITING_FOR_CHUNKS, EXPORTING, FINALIZING, CANCELLING -> true;
+            default -> false;
+        };
         boolean nameValid = isNameValid();
-        exportButton.active = nameValid && !exporting
-                && controller.state() != ExportWandController.State.WAITING_FOR_GRANT;
-        cancelButton.active = exporting;
+        exportButton.active = nameValid && !sessionBusy;
+        cancelButton.active = sessionBusy;
         for (int index = 0; index < coordinateFields.size(); index++) {
             coordinateFields.get(index).setTextColor(
                     coordinateModels.get(index).isInvalid() ? RED : LIGHT);
@@ -555,10 +558,18 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         switch (controller.state()) {
             case READY -> statusLine = "就绪";
             case WAITING_FOR_GRANT -> statusLine = "等待服务端授权";
+            case WAITING_FOR_SESSION -> statusLine = "等待服务端会话";
+            case LOADING_BATCH -> statusLine = "加载批次区块";
+            case WAITING_FOR_CHUNKS -> statusLine = "同步区块到客户端";
             case EXPORTING -> {
                 ExportProgressSnapshot snapshot = controller.telemetry().snapshot();
                 statusLine = snapshot.percent() + "% " + snapshot.stageKey();
             }
+            case FINALIZING -> {
+                ExportProgressSnapshot snapshot = controller.telemetry().snapshot();
+                statusLine = "写入与收尾 " + snapshot.percent() + "%";
+            }
+            case CANCELLING -> statusLine = "正在取消并清理";
             case COMPLETED -> statusLine = "导出完成";
             case FAILED -> statusLine = "失败";
             case CANCELLED -> statusLine = "已取消";
@@ -755,7 +766,12 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
         int right = Layout.RIGHT.x();
         int top = Layout.RIGHT.y();
         ExportWandController.State state = controller.state();
-        int percent = state == ExportWandController.State.EXPORTING
+        boolean sessionActive = switch (state) {
+            case WAITING_FOR_SESSION, LOADING_BATCH, WAITING_FOR_CHUNKS,
+                    EXPORTING, FINALIZING, CANCELLING -> true;
+            default -> false;
+        };
+        int percent = sessionActive
                 ? controller.telemetry().snapshot().percent()
                 : state == ExportWandController.State.COMPLETED ? 100 : 0;
         blitNineSlice(graphics, ExportWandTextures.GUI_066, progressStyle(),
@@ -765,7 +781,8 @@ public class ExportWandScreen extends AbstractContainerScreen<ExportWandMenu> {
                     screenX(right + 8), screenY(top + 114),
                     Math.max(2, 140 * percent / 100), 9);
         }
-        if (state == ExportWandController.State.EXPORTING) {
+        if (state == ExportWandController.State.EXPORTING
+                || state == ExportWandController.State.FINALIZING) {
             ExportProgressSnapshot snapshot = controller.telemetry().snapshot();
             graphics.text(font, Component.literal(
                             snapshot.percent() + "% · " + snapshot.stageKey()),

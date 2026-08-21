@@ -17,6 +17,8 @@ import com.nebysse.minetomesh.content.MineToMeshContent;
 import com.nebysse.minetomesh.job.ExportJob;
 import com.nebysse.minetomesh.job.ExportJobManager;
 import com.nebysse.minetomesh.job.ManagedJob;
+import com.nebysse.minetomesh.job.RollingCaptureSource;
+import com.nebysse.minetomesh.job.DefaultExportPipeline;
 import com.nebysse.minetomesh.network.BatchCaptureCompletedPayload;
 import com.nebysse.minetomesh.network.BatchClientReadablePayload;
 import com.nebysse.minetomesh.network.BatchLoadStartedPayload;
@@ -32,8 +34,10 @@ import com.nebysse.minetomesh.network.ExportSessionRejectedPayload;
 import com.nebysse.minetomesh.network.WandClientReceiver;
 import com.nebysse.minetomesh.wand.ExportWandMenu;
 import com.nebysse.minetomesh.world.SelectionStore;
+import com.nebysse.minetomesh.world.ChunkCoordinate;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -111,7 +115,35 @@ public final class MineToMeshClient {
                     }
                 },
                 chunk -> Minecraft.getInstance().level != null
-                        && Minecraft.getInstance().level.hasChunk(chunk.x(), chunk.z()));
+                        && Minecraft.getInstance().level.hasChunk(chunk.x(), chunk.z()),
+                (selection, name, options, telemetry) -> {
+                    DefaultExportPipeline.RollingExport rollingExport =
+                            DefaultExportPipeline.createRolling(
+                                    Minecraft.getInstance(), selection, name,
+                                    options, telemetry);
+                    RollingCaptureSource source = rollingExport.source();
+                    return new ExportWandController.RollingCapture() {
+                        @Override
+                        public ManagedJob job() {
+                            return rollingExport.job();
+                        }
+
+                        @Override
+                        public int enqueueBatch(List<ChunkCoordinate> chunks) {
+                            return source.enqueueBatch(chunks);
+                        }
+
+                        @Override
+                        public int capturedUnits() {
+                            return source.capturedUnits();
+                        }
+
+                        @Override
+                        public void finishInput() {
+                            source.finishInput();
+                        }
+                    };
+                });
         ClientExportSettings settings = new ClientExportSettingsStore(
                 Minecraft.getInstance().gameDirectory.toPath()
                         .resolve("config").resolve("minetomesh"),

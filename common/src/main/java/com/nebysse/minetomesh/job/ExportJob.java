@@ -136,6 +136,9 @@ public final class ExportJob implements ManagedJob {
                 }
                 if (currentSection == null) {
                     if (sectionIndex >= source.sectionCount()) {
+                        if (!source.inputFinished()) {
+                            return;
+                        }
                         if (!sink.finishInput()) {
                             return;
                         }
@@ -225,6 +228,9 @@ public final class ExportJob implements ManagedJob {
                 }
                 if (currentRawSection == null) {
                     if (sectionIndex >= rawSource.sectionCount()) {
+                        if (!rawSource.inputFinished()) {
+                            return;
+                        }
                         rawSubmissionsFinished = true;
                         processor.finishSubmissions();
                         continue;
@@ -398,6 +404,10 @@ public final class ExportJob implements ManagedJob {
         int sectionCount();
 
         SectionCapture openSection(int index) throws Exception;
+
+        default boolean inputFinished() {
+            return true;
+        }
     }
 
     public interface RawCaptureSource {
@@ -406,6 +416,10 @@ public final class ExportJob implements ManagedJob {
         int sectionCount();
 
         RawSectionCapture openSection(int index) throws Exception;
+
+        default boolean inputFinished() {
+            return true;
+        }
     }
 
     public interface SectionCapture {

@@ -78,10 +78,29 @@ public final class ExportWandController {
         boolean isReadable(ChunkCoordinate chunk);
     }
 
+    public interface RollingCapture {
+        ManagedJob job();
+
+        int enqueueBatch(List<ChunkCoordinate> chunks) throws Exception;
+
+        int capturedUnits();
+
+        void finishInput();
+    }
+
+    public interface RollingCaptureFactory {
+        RollingCapture start(
+                Selection selection,
+                ExportName name,
+                ExportOptions options,
+                ExportTelemetry telemetry) throws Exception;
+    }
+
     private final JobStarter starter;
     private final JobManagerPort jobs;
     private final SessionPacketSender sender;
     private final ChunkReadableProbe chunksReadable;
+    private final RollingCaptureFactory rollingFactory;
     private final ExportTelemetry telemetry = new ExportTelemetry();
 
     private UUID boundWandId;
@@ -103,6 +122,11 @@ public final class ExportWandController {
     private BlockPos sessionPos1;
     private BlockPos sessionPos2;
     private int workerThreads = 1;
+    private RollingCapture rolling;
+    private List<ChunkCoordinate> pendingChunks = List.of();
+    private long pendingSinceMillis;
+    private long ackTarget;
+    private boolean awaitingAck;
 
     public void setWorkerThreads(int workerThreads) {
         if (workerThreads < 1) {
@@ -126,10 +150,24 @@ public final class ExportWandController {
             JobManagerPort jobs,
             SessionPacketSender sender,
             ChunkReadableProbe chunksReadable) {
+        this(starter, jobs, sender, chunksReadable,
+                (selection, name, options, telemetry) -> {
+                    throw new UnsupportedOperationException(
+                            "Rolling capture is not available");
+                });
+    }
+
+    public ExportWandController(
+            JobStarter starter,
+            JobManagerPort jobs,
+            SessionPacketSender sender,
+            ChunkReadableProbe chunksReadable,
+            RollingCaptureFactory rollingFactory) {
         this.starter = Objects.requireNonNull(starter, "starter");
         this.jobs = Objects.requireNonNull(jobs, "jobs");
         this.sender = Objects.requireNonNull(sender, "sender");
         this.chunksReadable = Objects.requireNonNull(chunksReadable, "chunksReadable");
+        this.rollingFactory = Objects.requireNonNull(rollingFactory, "rollingFactory");
     }
 
     public void bind(UUID wandId, String dimension) {
@@ -219,7 +257,14 @@ public final class ExportWandController {
 
     public void sessionRejected(ExportSessionRejectedPayload payload) {
         Objects.requireNonNull(payload, "payload");
-        if (!sessionMatches(payload.wandId(), payload.sessionId())) {
+        if (boundWandId == null || !boundWandId.equals(payload.wandId())) {
+            return;
+        }
+        if (sessionId == null) {
+            if (state != State.WAITING_FOR_GRANT) {
+                return;
+            }
+        } else if (!sessionId.equals(payload.sessionId())) {
             return;
         }
         state = State.FAILED;
@@ -245,41 +290,34 @@ public final class ExportWandController {
                 || payload.batchSequence() != batchSequence) {
             return;
         }
-        for (ChunkCoordinate chunk : payload.chunks()) {
-            if (!chunksReadable.isReadable(chunk)) {
-                state = State.FAILED;
-                rejectionKey = "minetomesh.error.session.chunk_unreadable";
-                sender.send(new CancelExportRequestPayload(
-                        sessionId, boundWandId, boundDimension, rejectionKey));
-                return;
-            }
-        }
         currentBatch = payload.chunks();
+        pendingChunks = payload.chunks();
+        pendingSinceMillis = System.currentTimeMillis();
         state = State.WAITING_FOR_CHUNKS;
-        sender.send(new BatchClientReadablePayload(
-                sessionId, boundWandId, boundDimension, batchSequence));
-        startBatchCapture();
     }
 
-    private void startBatchCapture() {
-        try {
-            ExportName name = ExportName.parse(exportName);
-            ManagedJob job = starter.start(
-                    selectionForSession(),
-                    name,
-                    new ExportOptions(includePlayers),
-                    telemetry);
-            if (!jobs.start(job)) {
-                failSession("minetomesh.error.wand.already_running");
-                return;
+    private boolean allReadable(List<ChunkCoordinate> chunks) {
+        for (ChunkCoordinate chunk : chunks) {
+            if (!chunksReadable.isReadable(chunk)) {
+                return false;
             }
-            batchJob = job;
-            state = State.EXPORTING;
-        } catch (Exception exception) {
-            failSession(exception.getMessage() == null
-                    ? exception.getClass().getSimpleName()
-                    : exception.getMessage());
         }
+        return true;
+    }
+
+    private void ensureRollingCapture() throws Exception {
+        if (rolling != null) {
+            return;
+        }
+        ExportName name = ExportName.parse(exportName);
+        RollingCapture started = rollingFactory.start(
+                selectionForSession(), name,
+                new ExportOptions(includePlayers), telemetry);
+        if (!jobs.start(started.job())) {
+            throw new IllegalStateException("minetomesh.error.wand.already_running");
+        }
+        rolling = started;
+        batchJob = started.job();
     }
 
     public void cancelAcknowledged(ExportCancelAcknowledgedPayload payload) {
@@ -307,6 +345,11 @@ public final class ExportWandController {
         if (!sessionMatches(payload.wandId(), payload.sessionId())) {
             return;
         }
+        if (batchJob != null && !batchJob.isTerminal()) {
+            jobs.cancel(payload.reasonKey());
+        }
+        batchJob = null;
+        rolling = null;
         state = State.FAILED;
         rejectionKey = payload.reasonKey();
     }
@@ -367,18 +410,56 @@ public final class ExportWandController {
         if (batchJob != null && batchJob.isTerminal()) {
             ManagedJob finished = batchJob;
             batchJob = null;
+            if (state == State.CANCELLING || state == State.FAILED
+                    || state == State.CANCELLED) {
+                return;
+            }
             if (finished.state() == com.nebysse.minetomesh.job.JobState.COMPLETED) {
-                sender.send(new BatchCaptureCompletedPayload(
-                        sessionId, boundWandId, boundDimension, batchSequence,
-                        telemetry.snapshot().capturedPositions(),
-                        telemetry.snapshot().processedChunks()));
-                state = State.WAITING_FOR_CHUNKS;
+                sender.send(new ExportClientCompletedPayload(
+                        sessionId, boundWandId, boundDimension,
+                        telemetry.snapshot().persistedBatches(), "completed"));
+                state = State.FINALIZING;
             } else {
                 failSession(finished.summary()
                         .flatMap(ExportSummary::failureReason)
                         .orElse("batch_capture_failed"));
             }
             return;
+        }
+        if (state == State.WAITING_FOR_CHUNKS && !pendingChunks.isEmpty()) {
+            if (allReadable(pendingChunks)) {
+                sender.send(new BatchClientReadablePayload(
+                        sessionId, boundWandId, boundDimension, batchSequence));
+                try {
+                    ensureRollingCapture();
+                    ackTarget += rolling.enqueueBatch(pendingChunks);
+                    awaitingAck = true;
+                    pendingChunks = List.of();
+                    state = State.EXPORTING;
+                    if (batchSequence + 1 >= totalBatches) {
+                        rolling.finishInput();
+                    }
+                } catch (Exception exception) {
+                    failSession(exception.getMessage() == null
+                            ? exception.getClass().getSimpleName()
+                            : exception.getMessage());
+                    return;
+                }
+            } else if (System.currentTimeMillis() - pendingSinceMillis > 25000) {
+                failSession("minetomesh.error.session.chunk_unreadable");
+                return;
+            }
+        }
+        if (state == State.EXPORTING && awaitingAck && rolling != null
+                && rolling.capturedUnits() >= ackTarget) {
+            awaitingAck = false;
+            sender.send(new BatchCaptureCompletedPayload(
+                    sessionId, boundWandId, boundDimension, batchSequence,
+                    telemetry.snapshot().capturedPositions(),
+                    telemetry.snapshot().processedChunks()));
+            if (batchSequence + 1 < totalBatches) {
+                state = State.WAITING_FOR_CHUNKS;
+            }
         }
         if (state == State.EXPORTING && sessionId != null) {
             sender.send(new ExportProgressHeartbeatPayload(
@@ -421,6 +502,11 @@ public final class ExportWandController {
     }
 
     private void failSession(String reason) {
+        if (batchJob != null && !batchJob.isTerminal()) {
+            jobs.cancel(reason);
+        }
+        batchJob = null;
+        rolling = null;
         state = State.FAILED;
         rejectionKey = reason;
         if (sessionId != null) {
@@ -436,6 +522,10 @@ public final class ExportWandController {
         sessionPos1 = null;
         sessionPos2 = null;
         batchJob = null;
+        rolling = null;
+        pendingChunks = List.of();
+        awaitingAck = false;
+        ackTarget = 0;
         summary = Optional.empty();
     }
 

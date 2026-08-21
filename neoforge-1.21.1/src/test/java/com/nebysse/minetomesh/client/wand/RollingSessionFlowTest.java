@@ -15,16 +15,17 @@ import com.nebysse.minetomesh.network.BatchLoadStartedPayload;
 import com.nebysse.minetomesh.network.BatchReadyPayload;
 import com.nebysse.minetomesh.network.CancelExportRequestPayload;
 import com.nebysse.minetomesh.network.ExportCancelAcknowledgedPayload;
+import com.nebysse.minetomesh.network.ExportClientCompletedPayload;
 import com.nebysse.minetomesh.network.ExportSessionAcceptedPayload;
 import com.nebysse.minetomesh.network.ExportSessionFailedPayload;
 import com.nebysse.minetomesh.network.ExportSessionFinishedPayload;
 import com.nebysse.minetomesh.network.ExportSessionRejectedPayload;
-import com.nebysse.minetomesh.output.ExportName;
 import com.nebysse.minetomesh.world.ChunkCoordinate;
 import com.nebysse.minetomesh.world.Selection;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -41,121 +42,155 @@ class RollingSessionFlowTest {
 
     @Test
     void acceptedInitializesTotalsButStartsNoCaptureBeforeBatchReady() {
-        RecordingSender sender = new RecordingSender();
-        ExportWandController controller = controller(sender, Set.of(), new ArrayList<>());
-        controller.bind(WAND, DIMENSION);
-        controller.sessionAccepted(accepted());
+        Fixture fixture = new Fixture();
+        fixture.controller.bind(WAND, DIMENSION);
+        fixture.controller.sessionAccepted(accepted());
 
-        assertEquals(ExportWandController.State.WAITING_FOR_SESSION, controller.state());
-        assertTrue(sender.sent.isEmpty());
+        assertEquals(ExportWandController.State.WAITING_FOR_SESSION,
+                fixture.controller.state());
+        assertTrue(fixture.sender.sent.isEmpty());
+        assertTrue(fixture.rolling == null);
     }
 
     @Test
-    void batchReadyWaitsForReadableChunksThenAcknowledgesAndCaptures() {
-        RecordingSender sender = new RecordingSender();
-        List<FakeJob> jobs = new ArrayList<>();
-        ExportWandController controller = controller(
-                sender, Set.of("3,-2", "3,-1"), jobs);
-        controller.bind(WAND, DIMENSION);
-        controller.sessionAccepted(accepted());
-        controller.batchLoadStarted(new BatchLoadStartedPayload(
-                SESSION, WAND, DIMENSION, 0, BATCH));
-        controller.batchReady(new BatchReadyPayload(SESSION, WAND, DIMENSION, 0, BATCH));
+    void batchReadyWaitsUntilChunksBecomeReadable() {
+        Fixture fixture = new Fixture();
+        fixture.controller.bind(WAND, DIMENSION);
+        fixture.controller.sessionAccepted(accepted());
+        fixture.controller.batchLoadStarted(loadStarted(0));
+        fixture.controller.batchReady(ready(0));
 
-        assertEquals(ExportWandController.State.EXPORTING, controller.state());
-        assertEquals(1, sender.of(BatchClientReadablePayload.class).size());
-        assertEquals(1, jobs.size());
+        assertEquals(ExportWandController.State.WAITING_FOR_CHUNKS,
+                fixture.controller.state());
+        assertTrue(fixture.sender.sent.isEmpty());
+
+        fixture.controller.tick();
+        assertTrue(fixture.sender.sent.isEmpty());
+
+        fixture.readable.addAll(List.of("3,-2", "3,-1"));
+        fixture.controller.tick();
+
+        assertEquals(ExportWandController.State.EXPORTING, fixture.controller.state());
+        assertEquals(1, fixture.sender.of(BatchClientReadablePayload.class).size());
+        assertEquals(1, fixture.rolling.enqueued.size());
     }
 
     @Test
-    void unreadableBatchFailsAndRequestsServerCancellation() {
-        RecordingSender sender = new RecordingSender();
-        ExportWandController controller = controller(sender, Set.of(), new ArrayList<>());
-        controller.bind(WAND, DIMENSION);
-        controller.sessionAccepted(accepted());
-        controller.batchLoadStarted(new BatchLoadStartedPayload(
-                SESSION, WAND, DIMENSION, 0, BATCH));
-        controller.batchReady(new BatchReadyPayload(SESSION, WAND, DIMENSION, 0, BATCH));
+    void captureCompletionIsAcknowledgedOnlyWhenBatchUnitsAreCaptured() {
+        Fixture fixture = new Fixture();
+        fixture.readable.addAll(List.of("3,-2", "3,-1"));
+        fixture.controller.bind(WAND, DIMENSION);
+        fixture.controller.sessionAccepted(accepted());
+        fixture.controller.batchLoadStarted(loadStarted(0));
+        fixture.controller.batchReady(ready(0));
+        fixture.controller.tick();
 
-        assertEquals(ExportWandController.State.FAILED, controller.state());
-        assertEquals(1, sender.of(CancelExportRequestPayload.class).size());
+        fixture.controller.tick();
+        assertTrue(fixture.sender.of(BatchCaptureCompletedPayload.class).isEmpty());
+
+        fixture.rolling.captured = fixture.rolling.enqueuedUnits;
+        fixture.controller.tick();
+        assertEquals(1, fixture.sender.of(BatchCaptureCompletedPayload.class).size());
+        assertEquals(ExportWandController.State.WAITING_FOR_CHUNKS,
+                fixture.controller.state());
+    }
+
+    @Test
+    void finalBatchFinishesInputAndCompletionNotifiesServer() {
+        Fixture fixture = new Fixture();
+        fixture.readable.addAll(List.of("3,-2", "3,-1"));
+        fixture.controller.bind(WAND, DIMENSION);
+        fixture.controller.sessionAccepted(accepted());
+        driveBatch(fixture, 0);
+        driveBatch(fixture, 1);
+
+        assertTrue(fixture.rolling.inputFinished);
+        assertEquals(ExportWandController.State.EXPORTING, fixture.controller.state());
+
+        fixture.rolling.job.complete();
+        fixture.controller.tick();
+        assertEquals(1, fixture.sender.of(ExportClientCompletedPayload.class).size());
+        assertEquals(ExportWandController.State.FINALIZING, fixture.controller.state());
+
+        fixture.controller.sessionFinished(new ExportSessionFinishedPayload(
+                SESSION, WAND, DIMENSION, "completed"));
+        assertEquals(ExportWandController.State.COMPLETED, fixture.controller.state());
+    }
+
+    @Test
+    void rejectionBeforeSessionAcceptFailsTheWaitingRequest() {
+        Fixture fixture = new Fixture();
+        fixture.controller.bind(WAND, DIMENSION);
+        fixture.controller.requested("castle");
+
+        fixture.controller.sessionRejected(new ExportSessionRejectedPayload(
+                UUID.randomUUID(), WAND, DIMENSION,
+                "minetomesh.error.session.busy"));
+
+        assertEquals(ExportWandController.State.FAILED, fixture.controller.state());
+        assertEquals("minetomesh.error.session.busy",
+                fixture.controller.rejectionKey());
     }
 
     @Test
     void staleSequenceIsIgnoredWithoutSideEffects() {
-        RecordingSender sender = new RecordingSender();
-        ExportWandController controller = controller(
-                sender, Set.of("3,-2", "3,-1"), new ArrayList<>());
-        controller.bind(WAND, DIMENSION);
-        controller.sessionAccepted(accepted());
-        controller.batchLoadStarted(new BatchLoadStartedPayload(
-                SESSION, WAND, DIMENSION, 0, BATCH));
-        controller.batchReady(new BatchReadyPayload(SESSION, WAND, DIMENSION, 5, BATCH));
+        Fixture fixture = new Fixture();
+        fixture.controller.bind(WAND, DIMENSION);
+        fixture.controller.sessionAccepted(accepted());
+        fixture.controller.batchLoadStarted(loadStarted(0));
+        fixture.controller.batchReady(ready(5));
 
-        assertEquals(ExportWandController.State.LOADING_BATCH, controller.state());
-        assertTrue(sender.sent.isEmpty());
-    }
-
-    @Test
-    void captureCompletionIsSentOnlyAfterTheBatchJobFinishes() {
-        RecordingSender sender = new RecordingSender();
-        List<FakeJob> jobs = new ArrayList<>();
-        ExportWandController controller = controller(
-                sender, Set.of("3,-2", "3,-1"), jobs);
-        controller.bind(WAND, DIMENSION);
-        controller.sessionAccepted(accepted());
-        controller.batchLoadStarted(new BatchLoadStartedPayload(
-                SESSION, WAND, DIMENSION, 0, BATCH));
-        controller.batchReady(new BatchReadyPayload(SESSION, WAND, DIMENSION, 0, BATCH));
-
-        controller.tick();
-        assertTrue(sender.of(BatchCaptureCompletedPayload.class).isEmpty());
-
-        jobs.get(0).complete();
-        controller.tick();
-        assertEquals(1, sender.of(BatchCaptureCompletedPayload.class).size());
-        assertEquals(ExportWandController.State.WAITING_FOR_CHUNKS, controller.state());
+        assertEquals(ExportWandController.State.LOADING_BATCH,
+                fixture.controller.state());
+        assertTrue(fixture.sender.sent.isEmpty());
     }
 
     @Test
     void cancellationStaysPendingUntilServerAcknowledges() {
-        RecordingSender sender = new RecordingSender();
-        List<FakeJob> jobs = new ArrayList<>();
-        ExportWandController controller = controller(
-                sender, Set.of("3,-2", "3,-1"), jobs);
-        controller.bind(WAND, DIMENSION);
-        controller.sessionAccepted(accepted());
-        controller.batchLoadStarted(new BatchLoadStartedPayload(
-                SESSION, WAND, DIMENSION, 0, BATCH));
-        controller.batchReady(new BatchReadyPayload(SESSION, WAND, DIMENSION, 0, BATCH));
+        Fixture fixture = new Fixture();
+        fixture.readable.addAll(List.of("3,-2", "3,-1"));
+        fixture.controller.bind(WAND, DIMENSION);
+        fixture.controller.sessionAccepted(accepted());
+        fixture.controller.batchLoadStarted(loadStarted(0));
+        fixture.controller.batchReady(ready(0));
+        fixture.controller.tick();
 
-        controller.requestCancel("user_cancelled");
-        assertEquals(ExportWandController.State.CANCELLING, controller.state());
-        assertEquals(1, sender.of(CancelExportRequestPayload.class).size());
+        fixture.controller.requestCancel("user_cancelled");
+        assertEquals(ExportWandController.State.CANCELLING, fixture.controller.state());
+        assertEquals(1, fixture.sender.of(CancelExportRequestPayload.class).size());
 
-        controller.cancelAcknowledged(new ExportCancelAcknowledgedPayload(
+        fixture.controller.tick();
+        assertEquals(ExportWandController.State.CANCELLING, fixture.controller.state());
+
+        fixture.controller.cancelAcknowledged(new ExportCancelAcknowledgedPayload(
                 SESSION, WAND, DIMENSION, 0));
-        assertEquals(ExportWandController.State.CANCELLED, controller.state());
+        assertEquals(ExportWandController.State.CANCELLED, fixture.controller.state());
     }
 
     @Test
-    void terminalHandshakesMapToCompletedAndFailed() {
-        RecordingSender sender = new RecordingSender();
-        ExportWandController controller = controller(sender, Set.of(), new ArrayList<>());
-        controller.bind(WAND, DIMENSION);
-        controller.sessionAccepted(accepted());
-        controller.sessionFinished(new ExportSessionFinishedPayload(
-                SESSION, WAND, DIMENSION, "completed"));
-        assertEquals(ExportWandController.State.COMPLETED, controller.state());
+    void serverFailureCancelsActiveCaptureAndFails() {
+        Fixture fixture = new Fixture();
+        fixture.readable.addAll(List.of("3,-2", "3,-1"));
+        fixture.controller.bind(WAND, DIMENSION);
+        fixture.controller.sessionAccepted(accepted());
+        fixture.controller.batchLoadStarted(loadStarted(0));
+        fixture.controller.batchReady(ready(0));
+        fixture.controller.tick();
 
-        ExportWandController failed = controller(
-                new RecordingSender(), Set.of(), new ArrayList<>());
-        failed.bind(WAND, DIMENSION);
-        failed.sessionAccepted(accepted());
-        failed.sessionFailed(new ExportSessionFailedPayload(
-                SESSION, WAND, DIMENSION, "chunk_timeout", 0, Optional.empty()));
-        assertEquals(ExportWandController.State.FAILED, failed.state());
-        assertEquals("chunk_timeout", failed.rejectionKey());
+        fixture.controller.sessionFailed(new ExportSessionFailedPayload(
+                SESSION, WAND, DIMENSION, "timeout:capturing", 0, Optional.empty()));
+
+        assertEquals(ExportWandController.State.FAILED, fixture.controller.state());
+        assertEquals("timeout:capturing", fixture.controller.rejectionKey());
+        assertEquals(JobState.CANCELLED, fixture.rolling.job.state);
+    }
+
+    private static void driveBatch(Fixture fixture, long sequence) {
+        fixture.controller.batchLoadStarted(loadStarted(sequence));
+        fixture.controller.batchReady(ready(sequence));
+        fixture.controller.tick();
+        fixture.rolling.captured = fixture.rolling.enqueuedUnits;
+        fixture.controller.tick();
     }
 
     private static ExportSessionAcceptedPayload accepted() {
@@ -165,19 +200,64 @@ class RollingSessionFlowTest {
                 "castle", true, 4, 8, 2);
     }
 
-    private static ExportWandController controller(
-            RecordingSender sender,
-            Set<String> readableChunks,
-            List<FakeJob> jobs) {
-        return new ExportWandController(
-                (selection, name, options, telemetry) -> {
-                    FakeJob job = new FakeJob();
-                    jobs.add(job);
-                    return job;
-                },
-                new FakeManager(),
-                sender,
-                chunk -> readableChunks.contains(chunk.x() + "," + chunk.z()));
+    private static BatchLoadStartedPayload loadStarted(long sequence) {
+        return new BatchLoadStartedPayload(SESSION, WAND, DIMENSION, sequence, BATCH);
+    }
+
+    private static BatchReadyPayload ready(long sequence) {
+        return new BatchReadyPayload(SESSION, WAND, DIMENSION, sequence, BATCH);
+    }
+
+    private static final class Fixture {
+        private final RecordingSender sender = new RecordingSender();
+        private final Set<String> readable = new HashSet<>();
+        private final ExportWandController controller;
+        private FakeRollingCapture rolling;
+
+        private Fixture() {
+            controller = new ExportWandController(
+                    (selection, name, options, telemetry) -> {
+                        throw new UnsupportedOperationException("legacy path unused");
+                    },
+                    new FakeManager(),
+                    sender,
+                    chunk -> readable.contains(chunk.x() + "," + chunk.z()),
+                    (selection, name, options, telemetry) -> {
+                        rolling = new FakeRollingCapture();
+                        return rolling;
+                    });
+        }
+    }
+
+    private static final class FakeRollingCapture
+            implements ExportWandController.RollingCapture {
+        private final FakeJob job = new FakeJob();
+        private final List<List<ChunkCoordinate>> enqueued = new ArrayList<>();
+        private int enqueuedUnits;
+        private int captured;
+        private boolean inputFinished;
+
+        @Override
+        public ManagedJob job() {
+            return job;
+        }
+
+        @Override
+        public int enqueueBatch(List<ChunkCoordinate> chunks) {
+            enqueued.add(chunks);
+            enqueuedUnits += chunks.size() + 1;
+            return chunks.size() + 1;
+        }
+
+        @Override
+        public int capturedUnits() {
+            return captured;
+        }
+
+        @Override
+        public void finishInput() {
+            inputFinished = true;
+        }
     }
 
     private static final class RecordingSender
@@ -205,7 +285,7 @@ class RollingSessionFlowTest {
         }
 
         @Override
-        public void send(com.nebysse.minetomesh.network.ExportClientCompletedPayload payload) {
+        public void send(ExportClientCompletedPayload payload) {
             sent.add(payload);
         }
 

@@ -137,6 +137,51 @@ public final class DefaultExportPipeline {
         }
     }
 
+    public record RollingExport(ExportJob job, RollingCaptureSource source) {
+        public RollingExport {
+            Objects.requireNonNull(job, "job");
+            Objects.requireNonNull(source, "source");
+        }
+    }
+
+    public static RollingExport createRolling(
+            Minecraft minecraft,
+            Selection selection,
+            ExportName name,
+            ExportOptions options,
+            ExportTelemetry telemetry) throws IOException {
+        Objects.requireNonNull(minecraft, "minecraft");
+        Objects.requireNonNull(selection, "selection");
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(options, "options");
+        Objects.requireNonNull(telemetry, "telemetry");
+        ClientLevel level = Objects.requireNonNull(minecraft.level, "No active client world");
+        ExportPlan metadataPlan = new ExportPlan(selection, List.of(), List.of());
+        Path exportRoot = exportRoot(minecraft.gameDirectory.toPath());
+        OutputTransaction transaction = OutputTransaction.begin(exportRoot, name);
+        try {
+            TextureRegistry textures = new TextureRegistry();
+            textures.register(PlaceholderFactory.TEXTURE, PlaceholderFactory.textureImage());
+            RollingCaptureSource source = new RollingCaptureSource(
+                    minecraft, level, selection, textures, options);
+            StreamingBatchSink sink = new StreamingBatchSink(
+                    transaction,
+                    textures,
+                    name,
+                    metadataPlan,
+                    rootExtras(minecraft, metadataPlan, options),
+                    level.getGameTime(),
+                    level::getGameTime,
+                    telemetry);
+            return new RollingExport(new ExportJob(
+                    source, sink, System::nanoTime, Duration.ofMillis(6), telemetry),
+                    source);
+        } catch (RuntimeException | Error exception) {
+            transaction.close();
+            throw exception;
+        }
+    }
+
     static Path exportRoot(Path gameDirectory) {
         return Objects.requireNonNull(gameDirectory, "gameDirectory")
                 .resolve("minetomesh-exports");
@@ -368,7 +413,7 @@ public final class DefaultExportPipeline {
         }
     }
 
-    private static Function<RenderTypeDescriptor, MaterialKey> resourceMaterialResolver(
+    static Function<RenderTypeDescriptor, MaterialKey> resourceMaterialResolver(
             Minecraft minecraft,
             TextureRegistry textures,
             List<Diagnostic> diagnostics) {
