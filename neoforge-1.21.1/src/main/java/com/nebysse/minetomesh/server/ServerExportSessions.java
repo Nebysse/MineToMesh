@@ -143,26 +143,27 @@ public final class ServerExportSessions {
         }
         ExportWandSelection selection = request.selection();
         UUID sessionId = UUID.randomUUID();
+        ChunkRange range = ChunkRange.from(selection.toSelection().orElseThrow());
+        String dimension = selection.selectionDimension().orElseThrow().toString();
         PlatformExportRuntime runtime = new PlatformExportRuntime(server, player.serverLevel());
         coordinator = new ServerExportSessionCoordinator(runtime, new Messenger(server));
+        // Accepted must reach the client before any batch payload, because the
+        // client ignores batch traffic until the session is accepted.
+        PacketDistributor.sendToPlayer(player, new ExportSessionAcceptedPayload(
+                sessionId, request.wandId(), dimension,
+                selection.pos1().orElseThrow(), selection.pos2().orElseThrow(),
+                request.exportName(), selection.includePlayers(),
+                selection.batchChunkCount(), range.totalChunks(),
+                range.totalBatches(selection.batchChunkCount())));
         ServerExportSessionCoordinator.BeginResult result = coordinator.begin(
                 new ServerExportSessionCoordinator.BeginRequest(
                         sessionId, player.getUUID(), request.wandId(),
-                        selection.selectionDimension().orElseThrow().toString(),
-                        ChunkRange.from(selection.toSelection().orElseThrow()),
-                        selection.batchChunkCount()),
+                        dimension, range, selection.batchChunkCount()),
                 Instant.now());
         if (result.status() != ServerExportSessionCoordinator.BeginStatus.STARTED) {
             reject(player, sessionId, request.wandId(), selection,
                     "minetomesh.error.session." + result.reason());
-            return;
         }
-        ServerExportSession.Snapshot snapshot = coordinator.activeSession().orElseThrow();
-        PacketDistributor.sendToPlayer(player, new ExportSessionAcceptedPayload(
-                sessionId, request.wandId(), snapshot.dimension(),
-                selection.pos1().orElseThrow(), selection.pos2().orElseThrow(),
-                request.exportName(), selection.includePlayers(),
-                snapshot.batchChunkCount(), snapshot.totalChunks(), snapshot.totalBatches()));
     }
 
     private static synchronized void receiveSessionPayload(

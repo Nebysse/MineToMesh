@@ -133,6 +133,22 @@ class RollingSessionFlowTest {
     }
 
     @Test
+    void loadStartedBeforeAcceptIsIgnoredAndLaterFlowStillWorks() {
+        Fixture fixture = new Fixture();
+        fixture.controller.bind(WAND, DIMENSION);
+        fixture.controller.requested("castle");
+        fixture.controller.batchLoadStarted(loadStarted(0));
+
+        assertEquals(ExportWandController.State.WAITING_FOR_GRANT,
+                fixture.controller.state());
+
+        fixture.controller.sessionAccepted(accepted());
+        fixture.controller.batchLoadStarted(loadStarted(0));
+        assertEquals(ExportWandController.State.LOADING_BATCH,
+                fixture.controller.state());
+    }
+
+    @Test
     void staleSequenceIsIgnoredWithoutSideEffects() {
         Fixture fixture = new Fixture();
         fixture.controller.bind(WAND, DIMENSION);
