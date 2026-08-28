@@ -55,6 +55,7 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,25 +68,15 @@ public final class MineToMeshClient {
     private final ExportJobManager jobManager = new ExportJobManager();
     private final WandClientInput wandInput = new WandClientInput();
     private final ExportWandController wandController;
-    private final LockedSelectionService lockedSelectionService;
-    private final SelectionOverlayRenderer overlayRenderer;
+    // 1.21.10 客户端 mod 构造时 Minecraft.getInstance() 尚未创建，
+    // 依赖 gameDirectory 的状态统一推迟到首个客户端 tick 初始化。
+    private LockedSelectionService lockedSelectionService;
+    private SelectionOverlayRenderer overlayRenderer;
     private final MineToMeshCommands commands;
     private String activeDimension;
     private ManagedJob notifiedTerminalJob;
 
     public MineToMeshClient(IEventBus modBus) {
-        Path lockFile = Minecraft.getInstance().gameDirectory.toPath()
-                .resolve("config").resolve("minetomesh")
-                .resolve("locked-selections.json");
-        LockedSelectionStore lockedSelectionStore;
-        try {
-            lockedSelectionStore = LockedSelectionStore.open(lockFile);
-        } catch (IOException exception) {
-            LOGGER.error("Could not open persistent locked selections", exception);
-            lockedSelectionStore = LockedSelectionStore.empty(lockFile);
-        }
-        lockedSelectionService = new LockedSelectionService(
-                lockedSelectionStore, MineToMeshClient::currentWorldProfile);
         wandController = new ExportWandController(
                 (selection, name, options, telemetry) -> DefaultExportPipeline.create(
                         Minecraft.getInstance(), selection, name, options, telemetry),
@@ -146,13 +137,6 @@ public final class MineToMeshClient {
                         }
                     };
                 });
-        ClientExportSettings settings = new ClientExportSettingsStore(
-                Minecraft.getInstance().gameDirectory.toPath()
-                        .resolve("config").resolve("minetomesh"),
-                Runtime.getRuntime().availableProcessors()).load();
-        wandController.setWorkerThreads(settings.workerThreads());
-        overlayRenderer = new SelectionOverlayRenderer(
-                new HeldWandOverlaySource(), lockedSelectionService);
         WandClientReceiver.install(wandController::accept, wandController::reject);
         WandClientReceiver.installSessionHandler(this::receiveSessionPayload);
         commands = new MineToMeshCommands(selectionStore, jobManager,
@@ -162,9 +146,41 @@ public final class MineToMeshClient {
         NeoForge.EVENT_BUS.addListener(wandInput::onInteractionKey);
         NeoForge.EVENT_BUS.addListener(this::onClientTick);
         NeoForge.EVENT_BUS.addListener(this::onLoggingOut);
-        NeoForge.EVENT_BUS.addListener(overlayRenderer::onRenderLevel);
+        NeoForge.EVENT_BUS.addListener(this::onRenderLevel);
         modBus.addListener(this::onRegisterReloadListeners);
         modBus.addListener(this::onRegisterMenuScreens);
+    }
+
+    private void initializeClientState(Minecraft minecraft) {
+        if (lockedSelectionService != null) {
+            return;
+        }
+        Path lockFile = minecraft.gameDirectory.toPath()
+                .resolve("config").resolve("minetomesh")
+                .resolve("locked-selections.json");
+        LockedSelectionStore lockedSelectionStore;
+        try {
+            lockedSelectionStore = LockedSelectionStore.open(lockFile);
+        } catch (IOException exception) {
+            LOGGER.error("Could not open persistent locked selections", exception);
+            lockedSelectionStore = LockedSelectionStore.empty(lockFile);
+        }
+        lockedSelectionService = new LockedSelectionService(
+                lockedSelectionStore, MineToMeshClient::currentWorldProfile);
+        overlayRenderer = new SelectionOverlayRenderer(
+                new HeldWandOverlaySource(), lockedSelectionService);
+        ClientExportSettings settings = new ClientExportSettingsStore(
+                minecraft.gameDirectory.toPath()
+                        .resolve("config").resolve("minetomesh"),
+                Runtime.getRuntime().availableProcessors()).load();
+        wandController.setWorkerThreads(settings.workerThreads());
+    }
+
+    private void onRenderLevel(RenderLevelStageEvent.AfterTranslucentBlocks event) {
+        SelectionOverlayRenderer renderer = overlayRenderer;
+        if (renderer != null) {
+            renderer.onRenderLevel(event);
+        }
     }
 
     private void receiveSessionPayload(CustomPacketPayload payload) {
@@ -205,6 +221,7 @@ public final class MineToMeshClient {
 
     private void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
+        initializeClientState(minecraft);
         wandInput.tick(minecraft);
         if (minecraft.level != null) {
             String dimension = minecraft.level.dimension().location().toString();

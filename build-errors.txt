@@ -1,0 +1,10 @@
+
+> Configure project :fabric-26.2
+Fabric Loom: 1.17.20
+
+> Task :common:compileJava UP-TO-DATE
+> Task :neoforge-1.21.10:createMinecraftArtifacts UP-TO-DATE
+> Task :neoforge-1.21.10:compileJava
+
+BUILD SUCCESSFUL in 2s
+3 actionable tasks: 1 executed, 2 up-to-date
