@@ -9,10 +9,23 @@ subprojects {
     group = rootProject.mod_group_id
 
     repositories {
+        // maven.neoforged.net 在国内被重置，使用 forgecdn 镜像
+        maven { url = 'https://neoforged.forgecdn.net/releases' }
+        maven { url = 'https://neoforged.forgecdn.net/mojang-meta' }
         mavenCentral()
+    }
+
+    // ModDev 插件会注册硬编码官方地址的仓库，统一切换到镜像。
+    plugins.withId('net.neoforged.moddev') {
+        repositories.named('Mojang Meta') {
+            url = 'https://neoforged.forgecdn.net/mojang-meta/'
+        }
+        repositories.named('NeoForged Releases') {
+            url = 'https://neoforged.forgecdn.net/releases/'
+        }
     }
 }
 
 tasks.named('build') {
-    dependsOn ':common:build', ':neoforge-1.21.1:build', ':fabric-26.2:build'
+    dependsOn ':common:build', ':neoforge-1.21.1:build', ':neoforge-1.21.10:build', ':fabric-26.2:build'
 }

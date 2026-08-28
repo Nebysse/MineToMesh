@@ -1,0 +1,126 @@
+import java.time.Duration
+
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.143'
+    id 'idea'
+}
+
+version = rootProject.neoforge_12110_mod_version
+group = rootProject.mod_group_id
+
+base {
+    archivesName = 'MineToMesh-neoforge-1.21.10'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+sourceSets.main.resources {
+    srcDir 'src/generated/resources'
+}
+
+sourceSets {
+    testmod {
+        java.setSrcDirs(['src/testmod/java'])
+        resources.setSrcDirs(['src/testmod/resources'])
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
+neoForge {
+    version = project.neoforge_12110_neo_version
+
+    runs {
+        client { client() }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        serverSmoke {
+            server()
+            programArgument '--nogui'
+            systemProperty 'minetomesh.serverSmoke', 'true'
+        }
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+            sourceSet(project(':common').sourceSets.main)
+        }
+        minetomesh_test {
+            sourceSet(sourceSets.testmod)
+        }
+    }
+
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
+    }
+}
+
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+    testmodImplementation.extendsFrom implementation
+    testmodRuntimeOnly.extendsFrom runtimeOnly
+}
+
+dependencies {
+    implementation project(':common')
+    compileOnly 'com.google.code.gson:gson:2.10.1'
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation 'com.google.code.gson:gson:2.10.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+}
+
+tasks.named('runServerSmoke', JavaExec).configure {
+    timeout.set(Duration.ofSeconds(90))
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('jar', Jar).configure {
+    archiveFileName = "MineToMesh-${version}-neoforge-1.21.10.jar"
+    from(project(':common').sourceSets.main.output)
+}
+
+var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    var replaceProperties = [
+            minecraft_version: neoforge_12110_minecraft_version,
+            minecraft_version_range: neoforge_12110_minecraft_version_range,
+            neo_version: neoforge_12110_neo_version,
+            loader_version_range: neoforge_12110_loader_version_range,
+            mod_id: mod_id,
+            mod_name: mod_name,
+            mod_license: mod_license,
+            mod_version: rootProject.neoforge_12110_mod_version
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

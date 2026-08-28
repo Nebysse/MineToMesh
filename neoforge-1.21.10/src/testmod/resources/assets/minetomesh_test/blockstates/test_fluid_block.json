@@ -1,0 +1,5 @@
+{
+  "multipart": [
+    { "apply": { "model": "minetomesh_test:block/test_fluid_block" } }
+  ]
+}

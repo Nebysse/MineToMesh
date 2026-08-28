@@ -1,0 +1,8 @@
+{
+  "block.minetomesh_test.model_data_block": "Model Data Fixture",
+  "block.minetomesh_test.rendered_block": "Rendered Fixture",
+  "block.minetomesh_test.gpu_only_block": "GPU-only Fixture",
+  "item.minetomesh_test.test_fluid_bucket": "Purple Test Fluid Bucket",
+  "entity.minetomesh_test.test_entity": "Test Entity",
+  "fluid_type.minetomesh_test.test_fluid": "Purple Test Fluid"
+}
