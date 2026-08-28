@@ -42,6 +42,15 @@ class ExportWandResourceTest {
     }
 
     @Test
+    void itemModelEntryPointsToDedicatedModel() throws Exception {
+        // 1.21.2+ 物品模型入口在 items/ 目录，缺失会导致贴图不加载。
+        JsonObject entry = json(
+                "src/main/resources/assets/minetomesh/items/export_wand.json");
+        assertEquals("minetomesh:item/export_wand",
+                entry.getAsJsonObject("model").get("model").getAsString());
+    }
+
+    @Test
     void itemTextureIsCrispThirtyTwoPixelRgbaArtworkWithoutGreenScreenResidue() throws Exception {
         Path texture = projectRoot().resolve(
                 "src/main/resources/assets/minetomesh/textures/item/export_wand.png");
@@ -87,7 +96,12 @@ class ExportWandResourceTest {
     }
 
     private static String item(JsonObject key, String symbol) {
-        return key.getAsJsonObject(symbol).get("item").getAsString();
+        // 1.21.10 的 ingredient 接受裸字符串或 {"item": ...} 两种写法。
+        var entry = key.get(symbol);
+        if (entry.isJsonPrimitive()) {
+            return entry.getAsString();
+        }
+        return entry.getAsJsonObject().get("item").getAsString();
     }
 
     private static JsonObject json(String relativePath) throws Exception {

@@ -1,0 +1,25 @@
+
+> Configure project :fabric-26.2
+Fabric Loom: 1.17.20
+
+> Task :common:compileJava UP-TO-DATE
+> Task :common:processResources NO-SOURCE
+> Task :common:classes UP-TO-DATE
+> Task :common:jar UP-TO-DATE
+> Task :neoforge-1.21.10:createMinecraftArtifacts UP-TO-DATE
+> Task :neoforge-1.21.10:compileJava UP-TO-DATE
+> Task :neoforge-1.21.10:generateModMetadata UP-TO-DATE
+> Task :neoforge-1.21.10:processResources UP-TO-DATE
+> Task :neoforge-1.21.10:classes UP-TO-DATE
+> Task :neoforge-1.21.10:compileTestJava
+> Task :neoforge-1.21.10:compileTestmodJava UP-TO-DATE
+> Task :neoforge-1.21.10:downloadAssets UP-TO-DATE
+> Task :neoforge-1.21.10:prepareNeoForgeTestFiles UP-TO-DATE
+> Task :neoforge-1.21.10:processTestResources NO-SOURCE
+> Task :neoforge-1.21.10:testClasses
+> Task :neoforge-1.21.10:processTestmodResources UP-TO-DATE
+> Task :neoforge-1.21.10:testmodClasses UP-TO-DATE
+> Task :neoforge-1.21.10:test
+
+BUILD SUCCESSFUL in 13s
+12 actionable tasks: 2 executed, 10 up-to-date
